@@ -1,0 +1,26 @@
+{
+  "name": "rds-contracts",
+  "version": "0.0.1",
+  "description": "contracts for incentivized pinning",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rsksmart/rds-contracts.git"
+  },
+  "author": "Rinke Hendriksen <rinke@iovlabs.org>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rsksmart/rds-contracts/issues"
+  },
+  "homepage": "https://github.com/rsksmart/rds-contracts#readme",
+  "dependencies": {
+    "openzeppelin-solidity": "^2.4.0",
+    "truffle": "^5.0.42"
+  }
+}
