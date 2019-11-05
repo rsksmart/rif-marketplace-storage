@@ -19,8 +19,12 @@
     "url": "https://github.com/rsksmart/rds-contracts/issues"
   },
   "homepage": "https://github.com/rsksmart/rds-contracts#readme",
-  "dependencies": {
-    "openzeppelin-solidity": "^2.4.0",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^2.4.0",
+    "@openzeppelin/test-helpers": "^0.5.3",
     "truffle": "^5.0.42"
+  },
+  "dependencies": {
+    "chai": "^4.2.0"
   }
 }

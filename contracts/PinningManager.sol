@@ -1,6 +1,6 @@
 pragma solidity ^0.5.12;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 /// @title PinningManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
@@ -114,7 +114,6 @@ contract PinningManager {
             pinBid.deposited = 0;
             offerRegistry[offerIdentifier].capacity.add(pinBid.size);
             msg.sender.transfer(pinBid.deposited - pinBid.withdrawn);
-            return;
         } else {
             // the duration (based on amount) should have passed already
             require(calculateDuration(offerIdentifier, amount) <= now - pinBid.startDate);
