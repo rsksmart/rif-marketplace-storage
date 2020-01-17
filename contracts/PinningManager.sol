@@ -4,155 +4,252 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 /// @title PinningManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
-/// @notice Storage providers can offer their storage space and list their price (based on a relationship to time) and clients can take these offers
+/// @notice Storage providers can offer their storage space and list their price and clients can take these offers
 contract PinningManager {
 
-    using SafeMath for uint256;
+    //**TODO: verify all math operations and use SafeMath where needed. 
+    //**TODO: define and emit events
+    //**TODO: update to Solidity 6
 
-    /*
-    Price represents a {duration, totalValue} tuple, where totalValue is the amount which must be paid to pin a file for duration
-    */
+    // using SafeMath for uint256;
+    // using SafeMath for uint128;
+    uint64 constant MAX_UINT64 = 18446744073709551615;
+
+    // Price signals the price (in Wei) per period (in seconds) 
+    //**TODO: Is this struct really needed?
     struct Price {
-        uint256 duration;
-        uint256 price;
+        uint128 period;
+        uint128 price;
     }
 
     /*
-    Offer represents:
-     - total capacity of storage space (in bytes)
-     - an array of Price tuples
-     - the pinBids (identified by a bytes32 hash) registered under the offer
+    StorageOffer represents:
+     - capacity: the amount of bytes offered. When capacity is zero, already started pinBids can't be prolonged or re-started
+     - maximumDuration: the maximum time (in seconds) for which a customer can prepay. 
+     ** Question: we can get rid of this (^) parameter and give the provider the power to cancel a pinBid after a period (or x periods) REF1 **
+     - prices: maps a period to a price
+     - pinBidRegistry: the proposed and accepted pinBids
     */
     struct StorageOffer {
         uint256 capacity;
-        Price[] prices;
-        mapping(bytes32 => PinBid) pinBidRegistry;
+        uint256 maximumDuration;
+        mapping(uint128 => uint128) prices;
+        mapping(bytes32 => PinBid) pinBidRegistry; // link to pinning requests that are accepted under this offer
     }
-
+    
     /*
     PinBid represents:
-     - size of the file
-     - startDate when the pinBid was initiated
-     - (Wei) deposited
-     - (Wei) withdrawn
+     - chosenPrice: Every duration seconds a amount of x is applied. The contract can be cancelled by the proposer every duration seconds since the start.
+     - size: size of the file (in bytes, rounded up)
+     - startDate: when the pinBid was accepted
+     - numberOfPeriodsDeposited: number of periods (chosenPrice.duration seconds) that is deposited in the contracts. 
+       At startDate * numberOfPeriodsDeposited seconds the pinBid expires unless topped up in the meantime
+     - numberOfPeriodsWithdrawn how many periods are withdrawn from the numberOfPeriodsDeposited. Provider can withdraw every period seconds since the start
     */
     struct PinBid {
-        uint256 size;
+        Price chosenPrice;
+        uint256 size; 
         uint256 startDate;
-        uint256 deposited;
-        uint256 withdrawn;
+        uint64 numberOfPeriodsDeposited;
+        uint64 numberOfPeriodsWithdrawn;
     }
 
-    // the offerRegistry maps an offerIdentifier (keccak256(offerProvider, offerCount)) to an offer
-    mapping(bytes32 => StorageOffer) offerRegistry;
-    // how many storage offers the provider ever registered, only the most recent can be accepted
-    mapping(address => uint256) offerCounter;
-
-    event StorageOfferMade(bytes32 indexed offerIdentifier, address indexed offerProvider, uint256[] durations, uint256[] prices, uint256 capacity);
-    event PinBidMade(bytes32 indexed offerIdentifier, bytes32 indexed pinBidIdentifier, uint256 size, uint256 startDate, uint256 totalDeposited);
-    event PinBidStopped(bytes32 indexed offerIdentifier, bytes32 indexed pinBidIdentifier, address indexed offerProvider, bytes32 reasons);
+    // offerRegistry stores the open or closed StorageOffers per provider.
+    mapping(address => StorageOffer) offerRegistry;
 
     /**
-    * @notice makes an offer
+    @notice set the capacity, maximumDuration and price of a StorageOffer.
+    @dev use this function when initiating a storage offer or when the users wants to change more than one parameter at once. TODO: gas price comparison.
+    maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
+    @param capacity the amount of bytes offered.
+    If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
+    @param periods the offered periods. Length must be equal to pricesForPeriods.
+    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
     */
-    function makeStorageOffer(uint256 _capacity, uint256[] memory durations, uint256[] memory prices) public {
-        bytes32 offerIdentifier = getOfferIdentifier(msg.sender, offerCounter[msg.sender]+1);
-        StorageOffer storage offer = offerRegistry[offerIdentifier];
-        offer.capacity = _capacity;
-        if(durations.length != 0) {
-            require(durations.length == prices.length && durations.length <= 256, "PinningManager, duration and value not equal");
-            offer.prices[0] = Price({duration: durations[0], price: prices[0]});
-            for(uint8 i = 1; i <= durations.length; i++) {
-                require(durations[i] > durations[i-1], "PinningManager, duration not monotonically increasing");
-                require(prices[i] >= prices[i-1]);
-                offer.prices[i] = Price({duration: durations[i], price: prices[i]});
-            }
-            offerCounter[msg.sender] += 1;
-        } else {
-            require(offerCounter[msg.sender] != 0, "PinningManager, cannot make first offer without price information");
+    function setStorageOffer(uint256 capacity, uint256 maximumDuration, uint256[] memory periods, uint256[] memory pricesForPeriods) public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        _setCapacity(offer, capacity);
+        _setMaximumLength(offer, maximumDuration);
+        for(uint8 i = 0; i <= periods.length; i++) {
+            _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
         }
-        emit StorageOfferMade(offerIdentifier, msg.sender, durations, prices, _capacity);
     }
 
     /**
-    * @notice accepts an offer 
+    @notice set the capacity of a StorageOffer.
+    If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @param capacity the amount of bytes offered.
     */
-    function makePinBid(address payable offerProvider, uint256 size, bytes32 pinBidIdentifier) public payable {
-        bytes32 offerIdentifier = getOfferIdentifier(offerProvider, offerCounter[offerProvider]);
-        PinBid storage pinBid =  offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
-        // we accept a contract when we don't ever have accepted this offer before, or when we previously have accepted this offer, but it was expired in the meantime.
-        // pinBid was active before and final payout not done
-        if(pinBid.deposited != 0 && pinBid.deposited != pinBid.withdrawn) {
-            uint256 duration = calculateDuration(offerIdentifier, pinBid.deposited);
-            require(pinBid.startDate + duration <= now, "PinningManager: pinBid not expired");
-            offerProvider.transfer(pinBid.deposited - pinBid.withdrawn);
-            offerRegistry[offerIdentifier].capacity.add(size); // release capacity
-        }
-        offerRegistry[offerIdentifier].capacity.sub(size); // take capacity, revert if size > capacity
-        pinBid.size = size;
-        pinBid.startDate = now;
-        pinBid.deposited = msg.value;
-        pinBid.withdrawn = 0;
-        emit PinBidMade(offerIdentifier, pinBidIdentifier, size, now, msg.value);
+    function setStorageCapacity(uint256 capacity) public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        _setCapacity(offer, capacity);
     }
 
-    function prolongContract(address offerProvider, bytes32 pinBidIdentifier) public payable {
-        bytes32 offerIdentifier = getOfferIdentifier(offerProvider, offerCounter[offerProvider]); // we take the latest offer
+    /**
+    @notice set the price for a StorageOffer.
+    @param periods the offered periods. Length must be equal to pricesForPeriods.
+    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
+    */
+    function setStoragePrice(uint256[] memory durations, uint256[] memory pricesForPeriods) public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        for(uint8 i = 0; i <= durations.length; i++) {
+            _setStoragePrice(offer, durations[i], prices[i]);
+        }
+    }
+
+    /**
+    @notice set the maximumDuration for a StorageOffer.
+    @dev maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
+    @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
+    */
+    function setMaximumDuration(uint256 maximumDuration) public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        _setMaximumDuration(offer, maximumDuration); 
+    }
+
+    /**
+    @notice proposes to take a storageOffer. After proposing, an offer must be accepted by provider to become active.
+    @dev if pinBid was active before, is expired and final payout is not yet done, final payout can be triggered by proposer here.
+    The to-be-pinned file's size in bytes (rounded up) must be equal in size to param size.
+    @param fileReference the reference to the to-be-pinned file. 
+    @param provider the provider from which is proposed to take a StorageOffer.
+    @param size the size of the to-be-pinned file in bytes (rounded up).
+    @param period the chosen period (seconds after which a PinBid can be cancelled and left-over money refunded).
+    */
+    function proposePinning(bytes32 fileReference, address provider, uint256 size, uint256 period) public payable {
+        Price price = Price(period, offerRegistry[provider].prices[period]);
+        require(price.price != 0, "PinningManager: price doesn't exist for provider");
+        require(msg.value != 0 && msg.value % price.price == 0, "PinningManager: value sent not corresponding to price");
+        bytes32 pinningReference = getPinBidIdentifier(msg.sender, fileReference);
         PinBid storage pinBid = offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
-        uint256 duration = calculateDuration(offerIdentifier, pinBid.deposited);
-        require(pinBid.startDate + duration > now, "PinningManager: pinBid expired, pinBidIdentifier incorrect or offerProvider listed new offer"); // offer must not be expired yet
-        require(offerRegistry[offerIdentifier].capacity >= pinBid.size, "PinningManager: capacity unavailable"); // capacity must be still available
-        pinBid.deposited += msg.value;
-        emit PinBidMade(offerIdentifier, pinBidIdentifier,  0, now, pinBid.deposited);
-    }
-
-    function requestPayout(uint256 offerCount, bytes32 pinBidIdentifier, uint256 amount) public {
-        bytes32 offerIdentifier = getOfferIdentifier(msg.sender, offerCount);
-        PinBid storage pinBid =  offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
-        // if expired, we can transfer the full amount
-        if(pinBid.startDate + calculateDuration(offerIdentifier, pinBid.deposited) <= now ) {
-            pinBid.deposited = 0;
-            offerRegistry[offerIdentifier].capacity.add(pinBid.size);
-            msg.sender.transfer(pinBid.deposited - pinBid.withdrawn);
+        require(pinBid.startDate == 0 || (pinBid.startDate + (pinBid.numberOfPeriodsDeposited * pinBid.chosenPeriod)) > now, "PinningManager: pinBid already active");
+        if(pinBid.startDate + (pinBid.numberOfPeriodsDeposited * pinBid.chosenPeriod) > now) {
+            require(offerRegistry[provider].capacity != 0, "PinningManager: provider discontinued service");
+            uint256 toTransfer = (pinBid.numberOfPeriodsDeposited - pinBid.numberOfPeriodsWithdrawn) * pinBid.chosenPrice;
+            pinBid.numberOfPeriodsWithdrawn = 0;
+            pinBid.startDate = 0;
+            offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + pinBid.size;
+            provider.transfer(toTransfer);
         } else {
-            // the duration (based on amount) should have passed already
-            require(calculateDuration(offerIdentifier, amount) <= now - pinBid.startDate);
-            // we cannot withdraw more than is deposited (TODO: this condition can probably never be false)
-            require(pinBid.withdrawn <= pinBid.deposited);
-            pinBid.withdrawn += amount;
-            msg.sender.transfer(amount);
+            pinBid.size = size;
         }
+        uint256 numberOfPeriodsDeposited = msg.value / price.price;
+        require(numberOfPeriods <= MAX_UINT64);
+        require(numberOfPeriods * price.period <= offerRegistry[offerIdentifier].maximumDuration, "PinningManager: period too long");
+        pinBid.chosenPeriod = price.period;
+        pinBid.chosenPrice = price.price;
+        pinBid.numberOfPeriodsDeposited = numberOfPeriodsDeposited;
+        // emit event
     }
 
-    function cancelContract(bytes32 offerIdentifier, uint256 offerCount, bytes32 pinBidIdentifier, bytes32 reasons) public {
-        require(offerIdentifier == getOfferIdentifier(msg.sender, offerCount)); // only offerProvider may do this
-        emit PinBidStopped(offerIdentifier, pinBidIdentifier, msg.sender, reasons);
-    }    
+    /**
+    @notice stops a PinBid before it is accepted and transfers all money paid in.
+    @param fileReference the reference to the not-anymore-to-be-pinned file. 
+    */
+    function stopPinningBefore(bytes32 fileReference) public {
+        bytes32 pinningReference = getPinBidIdentifier(msg.sender, fileReference);
+        PinBid storage pinBid = offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
+        uint256 toTransfer = pinBid.numberOfPeriodsDeposited * pinBid.chosenPrice
+        pinBid.numberOfPeriodsDeposited = 0;
+        msg.sender.transfer(toTransfer);
+        // emit event
+    }
 
-    function calculateDuration(bytes32 offerIdentifier, uint256 price) public view returns(uint256) {
-        Price[] memory prices = offerRegistry[offerIdentifier].prices;
-        for(uint8 i = 0; i < prices.length; i++) {
-            if(price < prices[i].price) {
-                if(i == 0) {
-                    uint256 durationDelta = prices[i].duration;
-                    uint256 priceDelta = prices[i].price;
-                    return (price * durationDelta) / priceDelta;
-                } else {
-                    uint256 durationDelta = prices[i].duration - prices[i-1].duration;
-                    uint256 priceDelta = prices[i].price - prices[i-1].price;
-                    return prices[i-1].duration + ((price - prices[i-1].price) * durationDelta) / priceDelta;
-                }
-            } else if(price == prices[i].price) {
-                return prices[i].duration;
+    /**
+    @notice accepts a PinBid. From now on, the provider is responsible for pinning the file
+    @param pinningReference the keccak256 hash of the bidder and the fileReference (see: getPinBidIdentifier)
+    */
+    function acceptPinning(bytes32 pinningReference) public {
+        PinBid storage pinBid = offerRegistry[msg.sender].pinBidRegistry[pinningReference];
+        require(pinBid.numberOfPeriodsDeposited != 0);
+        pinBid.startDate = now;
+        offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity.sub(pinBid.size);
+        // emit event
+    }
+
+    // TODO: is it desirable that any party can top up? Right now, only the original proposer can do this. I can make it all parties with some modifications
+    /**
+    @notice extend the duration of the PinBid.
+    @param fileReference the reference to the already-pinned file.
+    @param provider the address of the provider of the StorageOffer.
+    */
+    function topUpPinning(bytes32 fileReference, address provider) public payable {
+        bytes32 pinningReference = getPinBidIdentifier(proposer, fileReference);
+        PinBid storage pinBid = offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
+        require(offerRegistry[provider].capacity != 0, "PinningManager: provider discontinued service");
+        require(pinBid.startDate != 0, "PinningManager: pinBid not active");
+        require(offerRegistry[provider].prices[pinBid.period] != 0, "PinningManager: price not available anymore");
+        require(msg.value != 0 && msg.value % pinBid.chosenPrice == 0, "PinningManager: value sent not corresponding to price");
+        require(pinBid.startDate + (pinBid.numberOfPeriodsDeposited * pinBid.chosenPeriod) <= now, "PinningManager: pinBid expired");
+        uint256 numberOfPeriods = msg.value / pinBid.chosenPrice;
+        // periodsPast = (now - pinBid.startDate) /  pinBid.chosenPeriod
+        // periodsLeft = pinBid.numberOfPeriodsDeposited - periodsPast;
+        require(((pinBid.numberOfPeriodsDeposited - ((now - pinBid.startDate) /  pinBid.chosenPeriod)) + numberOfPeriods) * pinBid.chosenPeriod <= pinBid.maximumDuration, "PinningManager: period too long");
+        pinBid.numberOfPeriodsDeposited += numberOfPeriods;
+        // emit event
+    }
+
+    /**
+    @notice stops an active PinBid.
+    @param fileReference the reference to the not-anymore-to-pin file.
+    @param provider the address of the provider of the StorageOffer.
+    */
+    function stopPinningDuring(bytes32 fileReference, address provider) public payable {
+        bytes32 pinningReference = getPinBidIdentifier(msg.sender, fileReference);
+        PinBid storage pinBid = offerRegistry[provider].pinBidRegistry[pinningReference];
+        uint periodsPast = (now - pinBid.startDate) /  pinBid.chosenPeriod + 1;
+        uint periodsLeft = pinBid.numberOfPeriodsDeposited - periodsPast;
+        pinBid.numberOfPeriodsDeposited = 0;
+        pinBid.numberOfPeriodsWithdrawn = 0;
+        offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + pinBid.size;
+        pinBid.startDate = 0;
+        msg.sender.transfer(periodsLeft * pinBid.chosenPrice);
+        // emit event
+    }
+
+    /**
+    @notice withdraws the to-withdraw balance of one or more PinBids
+    @param pinningReferences reference to one or more PinBids
+    */
+    function withdraw(bytes32[] pinningReferences) public {
+        uint toTransfer;
+        for(uint8 i = 0; i <= durations.length; i++) {
+            PinBid storage pinBid = offerRegistry[msg.sender].pinBidRegistry[pinningReference];
+            require(pinBid.startDate != 0, "PinningManager: pinBid not active");
+            periodsPast = (now - pinBid.startDate) /  pinBid.chosenPeriod;
+            pinBid.numberOfPeriodsWithdrawn += periodsPast;
+            if(pinBid.numberOfPeriodsWithdrawn + periodsPast >= pinBid.numberOfPeriodsDeposited && offerRegistry[msg.sender].capacity != 0) {
+                toTransfer += pinBid.numberOfPeriodsDeposited - pinBid.numberOfPeriodsWithdrawn;
+                pinBid.numberOfPeriodsWithdrawn = 0;
+                pinBid.numberOfPeriodsDeposited = 0;
+                offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + pinBid.size;
+                pinBid.startDate = 0;
+            } else {
+                toTransfer += periodsPast - pinBid.numberOfPeriodsWithdrawn;
             }
         }
-        uint256 durationDelta = prices[prices.length].duration - prices[prices.length-1].duration;
-        uint256 priceDelta = prices[prices.length].price - prices[prices.length-1].price;
-        return prices[prices.length].duration + ((price - prices[prices.length-1].price) * durationDelta) / priceDelta;
+        msg.sender.transfer(toTransfer);
+        // emit event
     }
 
-    // an offerIdentifier comprises the offerProvider and a count, to allow updating an offer, but keeping the same identity (offerProvider)
-    function getOfferIdentifier(address offerProvider, uint256 offerCount) public pure returns(bytes32) {
-        return keccak256(abi.encodePacked(offerProvider, offerCount));
+    function _setCapacity(StorageOffer storage offer, uint256 newCapacity) internal {
+        offer.capacity = newCapacity;
+        // emit event
+    }
+
+    function _setMaximumDuration(offer, maximumDuration) internal {
+         offer.maximumDuration = maximumDuration;
+         // emit event
+     }
+
+    function _setStoragePrice(StorageOffer storage offer, uint256 price, uint256 period) internal {
+        require(offer.maximumDuration >= period); //TODO: maybe we can remove this, if there is no attack vector.
+        offer.prices[period] = price;
+        // emit event
+    }
+
+    function getPinBidIdentifier(address bidder, bytes32 fileIdentifier) public pure returns(bytes32) {
+        return keccak256(abi.encodePacked(bidder, fileIdentifier));
     }
 }
