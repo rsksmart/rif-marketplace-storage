@@ -1,6 +1,6 @@
-pragma solidity ^0.5.12;
+pragma solidity ^0.6.1;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./vendor/SafeMath.sol";
 
 /// @title PinningManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
@@ -9,7 +9,6 @@ contract PinningManager {
 
     //**TODO: verify all math operations and use SafeMath where needed. 
     //**TODO: define and emit events
-    //**TODO: update to Solidity 6
 
     // using SafeMath for uint256;
     // using SafeMath for uint128;
@@ -150,7 +149,7 @@ contract PinningManager {
     function stopPinningBefore(bytes32 fileReference) public {
         bytes32 pinningReference = getPinBidIdentifier(msg.sender, fileReference);
         PinBid storage pinBid = offerRegistry[offerIdentifier].pinBidRegistry[pinBidIdentifier];
-        uint256 toTransfer = pinBid.numberOfPeriodsDeposited * pinBid.chosenPrice
+        uint256 toTransfer = pinBid.numberOfPeriodsDeposited * pinBid.chosenPrice;
         pinBid.numberOfPeriodsDeposited = 0;
         msg.sender.transfer(toTransfer);
         // emit event
