@@ -5,7 +5,7 @@ pragma solidity >=0.4.21 <0.7.0;
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
  * checks. 
  * 
- * Same as @openzeppelin/contracts (per 20/1/2020), but the pragma statement (line 1) changed to include Solidity 6.
+ * Same as openzeppelin/contracts (per 20/1/2020), but the pragma statement (line 1) changed to include Solidity 6.
  *
  * Arithmetic operations in Solidity wrap on overflow. This can easily result
  * in bugs, because programmers usually assume that an overflow raises an

@@ -14,7 +14,7 @@ contract PinningManager {
     // using SafeMath for uint128;
     uint64 constant MAX_UINT64 = 18446744073709551615;
 
-    // Price signals the price (in Wei) per period (in seconds) 
+    // Price signals the price (in Wei) per period (in seconds)
     //**TODO: Is this struct really needed?
     struct Price {
         uint128 period;
@@ -23,31 +23,31 @@ contract PinningManager {
 
     /*
     StorageOffer represents:
-     - capacity: the amount of bytes offered. When capacity is zero, already started pinBids can't be prolonged or re-started
-     - maximumDuration: the maximum time (in seconds) for which a customer can prepay. 
-     ** Question: we can get rid of this (^) parameter and give the provider the power to cancel a pinBid after a period (or x periods) REF1 **
+     - capacity: the amount of bytes offered. When capacity is zero, already started Requests can't be prolonged or re-started
+     - maximumDuration: the maximum time (in seconds) for which a customer can prepay.
+     ** Question: we can get rid of this (^) parameter and give the provider the power to cancel a Request after a period (or x periods) REF1 **
      - prices: maps a period to a price
-     - pinBidRegistry: the proposed and accepted pinBids
+     - RequestRegistry: the proposed and accepted Requests
     */
     struct StorageOffer {
         uint256 capacity;
         uint256 maximumDuration;
         mapping(uint128 => uint128) prices;
-        mapping(bytes32 => PinBid) pinBidRegistry; // link to pinning requests that are accepted under this offer
+        mapping(bytes32 => Request) RequestRegistry; // link to pinning requests that are accepted under this offer
     }
     
     /*
-    PinBid represents:
+    Request represents:
      - chosenPrice: Every duration seconds a amount of x is applied. The contract can be cancelled by the proposer every duration seconds since the start.
      - size: size of the file (in bytes, rounded up)
-     - startDate: when the pinBid was accepted
-     - numberOfPeriodsDeposited: number of periods (chosenPrice.duration seconds) that is deposited in the contracts. 
-       At startDate * numberOfPeriodsDeposited seconds the pinBid expires unless topped up in the meantime
+     - startDate: when the Request was accepted
+     - numberOfPeriodsDeposited: number of periods (chosenPrice.duration seconds) that is deposited in the contracts.
+       At startDate * numberOfPeriodsDeposited seconds the Request expires unless topped up in the meantime
      - numberOfPeriodsWithdrawn how many periods are withdrawn from the numberOfPeriodsDeposited. Provider can withdraw every period seconds since the start
     */
-    struct PinBid {
+    struct Request {
         Price chosenPrice;
-        uint256 size; 
+        uint256 size;
         uint256 startDate;
         uint64 numberOfPeriodsDeposited;
         uint64 numberOfPeriodsWithdrawn;
@@ -84,10 +84,10 @@ contract PinningManager {
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
     */
-    function setStorageOffer(uint256 capacity, uint256 maximumDuration, uint256[] memory periods, uint256[] memory pricesForPeriods) public {
+    function setStorageOffer(uint256 capacity, uint256 maximumDuration, uint128[] memory periods, uint128[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setCapacity(offer, capacity);
-        _setMaximumLength(offer, maximumDuration);
+        _setMaximumDuration(offer, maximumDuration);
         for(uint8 i = 0; i <= periods.length; i++) {
             _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
         }
@@ -108,10 +108,10 @@ contract PinningManager {
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
     */
-    function setStoragePrice(uint256[] memory durations, uint256[] memory pricesForPeriods) public {
+    function setStoragePrice(uint128[] memory periods, uint128[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
-        for(uint8 i = 0; i <= durations.length; i++) {
-            _setStoragePrice(offer, durations[i], prices[i]);
+        for(uint8 i = 0; i <= periods.length; i++) {
+            _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
         }
     }
 
