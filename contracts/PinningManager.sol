@@ -8,34 +8,25 @@ import "./vendor/SafeMath.sol";
 contract PinningManager {
 
     //**TODO: verify all math operations and use SafeMath where needed.
-    // **TODO: is it desireable to allow a change in period during the contract?
-    //**TODO: if I make period and price a uint64, a Request can be layed out more economically
+    //**TODO: make a seperate contract per request?
     // using SafeMath for uint256;
     // using SafeMath for uint128;
     uint64 constant MAX_UINT64 = 18446744073709551615;
-
-    // Price signals the price (in Wei) per period (in seconds)
-    //**TODO: Is this struct really needed?
-    struct Price {
-        uint128 period;
-        uint128 price;
-    }
 
     /*
     StorageOffer represents:
      - capacity: the amount of bytes offered. When capacity is zero, already started Requests can't be prolonged or re-started
      - maximumDuration: the maximum time (in seconds) for which a customer can prepay.
-     ** Question: we can get rid of this (^) parameter and give the provider the power to cancel a Request after a period (or x periods) REF1 **
      - prices: maps a period to a price
      - RequestRegistry: the proposed and accepted Requests
     */
     struct StorageOffer {
-        uint256 capacity;
-        uint256 maximumDuration;
-        mapping(uint128 => uint128) prices;
+        uint128 capacity;
+        uint128 maximumDuration;
+        mapping(uint64 => uint64) prices;
         mapping(bytes32 => Request) RequestRegistry; // link to pinning requests that are accepted under this offer
     }
-    
+
     /*
     Request represents:
      - chosenPrice: Every duration seconds a amount of x is applied. The contract can be cancelled by the proposer every duration seconds since the start.
@@ -46,32 +37,33 @@ contract PinningManager {
      - numberOfPeriodsWithdrawn how many periods are withdrawn from the numberOfPeriodsDeposited. Provider can withdraw every period seconds since the start
     */
     struct Request {
-        Price chosenPrice;
-        uint256 size;
-        uint256 startDate;
+        uint64 chosenPrice;
+        uint64 chosenPeriod;
         uint64 numberOfPeriodsDeposited;
         uint64 numberOfPeriodsWithdrawn;
+        uint128 size;
+        uint128 startDate;
     }
 
     // offerRegistry stores the open or closed StorageOffers per provider.
     mapping(address => StorageOffer) offerRegistry;
 
     event CapacitySet(address indexed storer, uint256 capacity);
-    event MaximumDurationSet(address indexed storer, uint256 maximumDuration);
-    event PriceSet(address indexed storer, uint128 period, uint128 price);
+    event MaximumDurationSet(address indexed storer, uint128 maximumDuration);
+    event PriceSet(address indexed storer, uint64 period, uint64 price);
 
     event RequestMade(
         bytes32 indexed fileReference,
         address indexed requester,
         address indexed provider,
-        uint256 size,
-        uint128 period,
+        uint128 size,
+        uint64 period,
         uint256 deposited
     );
     event RequestTopUp(bytes32 indexed requestReference, uint256 deposited);
     event RequestAccepted(bytes32 indexed requestReference);
     event RequestStopped(bytes32 indexed requestReference);
-    
+
     event EarningsWithdrawn(bytes32 indexed requestReference);
 
     /**
@@ -84,7 +76,7 @@ contract PinningManager {
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
     */
-    function setStorageOffer(uint256 capacity, uint256 maximumDuration, uint128[] memory periods, uint128[] memory pricesForPeriods) public {
+    function setStorageOffer(uint128 capacity, uint128 maximumDuration, uint64[] memory periods, uint64[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setCapacity(offer, capacity);
         _setMaximumDuration(offer, maximumDuration);
@@ -98,7 +90,7 @@ contract PinningManager {
     If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param capacity the amount of bytes offered.
     */
-    function setStorageCapacity(uint256 capacity) public {
+    function setStorageCapacity(uint128 capacity) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setCapacity(offer, capacity);
     }
@@ -108,7 +100,7 @@ contract PinningManager {
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
     */
-    function setStoragePrice(uint128[] memory periods, uint128[] memory pricesForPeriods) public {
+    function setStoragePrice(uint64[] memory periods, uint64[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         for(uint8 i = 0; i <= periods.length; i++) {
             _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
@@ -120,7 +112,7 @@ contract PinningManager {
     @dev maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
     @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
     */
-    function setMaximumDuration(uint256 maximumDuration) public {
+    function setMaximumDuration(uint128 maximumDuration) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setMaximumDuration(offer, maximumDuration);
     }
@@ -134,21 +126,21 @@ contract PinningManager {
     @param size the size of the to-be-pinned file in bytes (rounded up).
     @param period the chosen period (seconds after which a Request can be cancelled and left-over money refunded).
     */
-    function newRequest(bytes32 fileReference, address payable provider, uint256 size, uint128 period) public payable {
-        Price memory price = Price(period, offerRegistry[provider].prices[period]);
-        require(price.price != 0, "PinningManager: price doesn't exist for provider");
-        require(msg.value != 0 && msg.value % price.price == 0, "PinningManager: value sent not corresponding to price");
+    function newRequest(bytes32 fileReference, address payable provider, uint128 size, uint64 period) public payable {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference);
+        uint64 chosenPrice = offerRegistry[provider].prices[period];
+        require(chosenPrice != 0, "PinningManager: price doesn't exist for provider");
+        require(msg.value != 0 && msg.value % chosenPrice == 0, "PinningManager: value sent not corresponding to price");
         StorageOffer storage offer = offerRegistry[provider];
         Request storage request = offer.RequestRegistry[fileReference];
         require(
             request.startDate == 0 ||
-            request.startDate + (request.numberOfPeriodsDeposited * request.chosenPrice.period) > now,
+            request.startDate + (request.numberOfPeriodsDeposited * request.chosenPeriod) > now,
             "PinningManager: Request already active"
         );
-        if(request.startDate + (request.numberOfPeriodsDeposited * request.chosenPrice.period) > now) {
+        if(request.startDate + (request.numberOfPeriodsDeposited * request.chosenPeriod) > now) {
             require(offer.capacity != 0, "PinningManager: provider discontinued service");
-            uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn) * request.chosenPrice.price;
+            uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn) * request.chosenPrice;
             request.numberOfPeriodsWithdrawn = 0;
             request.startDate = 0;
             offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + request.size;
@@ -157,13 +149,13 @@ contract PinningManager {
         } else {
             request.size = size;
         }
-        uint256 numberOfPeriodsDeposited = msg.value / price.price;
+        uint256 numberOfPeriodsDeposited = msg.value / chosenPrice;
         require(
-            numberOfPeriodsDeposited * price.period <= offer.maximumDuration ||
+            numberOfPeriodsDeposited * period <= offer.maximumDuration ||
             numberOfPeriodsDeposited <= MAX_UINT64,
             "PinningManager: period too long"
         );
-        request.chosenPrice = price;
+        request.chosenPrice = chosenPrice;
         request.numberOfPeriodsDeposited = uint64(numberOfPeriodsDeposited);
         emit RequestMade(
             fileReference,
@@ -183,20 +175,22 @@ contract PinningManager {
     function stopRequestBefore(bytes32 fileReference, address provider) public {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         Request storage request = offerRegistry[provider].RequestRegistry[requestReference];
-        uint256 toTransfer = request.numberOfPeriodsDeposited * request.chosenPrice.price;
+        uint256 toTransfer = request.numberOfPeriodsDeposited * request.chosenPrice;
         request.numberOfPeriodsDeposited = 0;
         msg.sender.transfer(toTransfer);
         emit RequestStopped(requestReference);
     }
 
+    // **TODO: stopping request as a provider, mentioning reason
+
     /**
     @notice accepts a request. From now on, the provider is responsible for pinning the file
     @param requestReference the keccak256 hash of the bidder and the fileReference (see: getRequestReference)
     */
-    function acceptPinning(bytes32 requestReference) public {
+    function acceptRequest(bytes32 requestReference) public {
         Request storage request = offerRegistry[msg.sender].RequestRegistry[requestReference];
         require(request.numberOfPeriodsDeposited != 0);
-        request.startDate = now;
+        request.startDate = uint128(now);
         offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity - request.size;
         emit RequestAccepted(requestReference);
     }
@@ -213,18 +207,18 @@ contract PinningManager {
         Request storage request = offer.RequestRegistry[requestReference];
         require(offer.capacity != 0, "PinningManager: provider discontinued service");
         require(request.startDate != 0, "PinningManager: Request not active");
-        require(offer.prices[request.chosenPrice.period] != 0, "PinningManager: price not available anymore");
-        require(msg.value != 0 && msg.value % request.chosenPrice.price == 0, "PinningManager: value sent not corresponding to price");
-        require(request.startDate + (request.numberOfPeriodsDeposited * request.chosenPrice.period) <= now, "PinningManager: Request expired");
-        uint64 numberOfPeriods = uint64(msg.value / request.chosenPrice.price);
+        require(offer.prices[request.chosenPeriod] != 0, "PinningManager: price not available anymore");
+        require(msg.value != 0 && msg.value % request.chosenPrice == 0, "PinningManager: value sent not corresponding to price");
+        require(request.startDate + (request.numberOfPeriodsDeposited * request.chosenPeriod) <= now, "PinningManager: Request expired");
+        uint64 numberOfPeriods = uint64(msg.value / request.chosenPrice);
         // periodsPast = (now - request.startDate) /  request.chosenPeriod
         // periodsLeft = request.numberOfPeriodsDeposited - periodsPast;
         require(
             (
                 request.numberOfPeriodsDeposited -
-                (now - request.startDate) / request.chosenPrice.period +
+                (now - request.startDate) / request.chosenPeriod +
                 numberOfPeriods
-            ) * request.chosenPrice.period <= offer.maximumDuration,
+            ) * request.chosenPeriod <= offer.maximumDuration,
             "PinningManager: period too long");
         request.numberOfPeriodsDeposited += numberOfPeriods;
         emit RequestTopUp(requestReference, msg.value);
@@ -238,13 +232,13 @@ contract PinningManager {
     function stopRequestDuring(bytes32 fileReference, address provider) public payable {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         Request storage request = offerRegistry[provider].RequestRegistry[requestReference];
-        uint periodsPast = (now - request.startDate) /  request.chosenPrice.period + 1;
+        uint periodsPast = (now - request.startDate) /  request.chosenPeriod + 1;
         uint periodsLeft = request.numberOfPeriodsDeposited - periodsPast;
         request.numberOfPeriodsDeposited = 0;
         request.numberOfPeriodsWithdrawn = 0;
         offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + request.size;
         request.startDate = 0;
-        msg.sender.transfer(periodsLeft * request.chosenPrice.price);
+        msg.sender.transfer(periodsLeft * request.chosenPrice);
         emit RequestStopped(requestReference);
     }
 
@@ -258,7 +252,7 @@ contract PinningManager {
             Request storage request = offerRegistry[msg.sender].RequestRegistry[requestReferences[i]];
             require(request.startDate != 0, "PinningManager: Request not active");
             //TODO: casting to 128 doesn't work if now is too far away from the startDate
-            uint64 periodsPast = uint64((now - request.startDate) /  request.chosenPrice.period);
+            uint64 periodsPast = uint64((now - request.startDate) /  request.chosenPeriod);
             request.numberOfPeriodsWithdrawn += periodsPast;
             if(request.numberOfPeriodsWithdrawn + periodsPast >= request.numberOfPeriodsDeposited && offerRegistry[msg.sender].capacity != 0) {
                 toTransfer += request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn;
@@ -274,17 +268,17 @@ contract PinningManager {
         msg.sender.transfer(toTransfer);
     }
 
-    function _setCapacity(StorageOffer storage offer, uint256 capacity) internal {
+    function _setCapacity(StorageOffer storage offer, uint128 capacity) internal {
         offer.capacity = capacity;
         emit CapacitySet(msg.sender, capacity);
     }
 
-    function _setMaximumDuration(StorageOffer storage offer, uint256 maximumDuration) internal {
+    function _setMaximumDuration(StorageOffer storage offer, uint128 maximumDuration) internal {
         offer.maximumDuration = maximumDuration;
         emit MaximumDurationSet(msg.sender, maximumDuration);
      }
 
-    function _setStoragePrice(StorageOffer storage offer, uint128 period, uint128 price) internal {
+    function _setStoragePrice(StorageOffer storage offer, uint64 period, uint64 price) internal {
         require(offer.maximumDuration >= period); //TODO: maybe we can remove this, if there is no attack vector.
         offer.prices[period] = price;
         emit PriceSet(msg.sender, period, price);
