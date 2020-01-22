@@ -1,4 +1,4 @@
-pragma solidity ^0.6.1;
+pragma solidity 0.6.2;
 
 import "./vendor/SafeMath.sol";
 
@@ -7,13 +7,10 @@ import "./vendor/SafeMath.sol";
 /// @notice Storage providers can offer their storage space and list their price and clients can take these offers
 contract PinningManager {
 
-    //**TODO: verify that all safeMath operations don't cause a deadlock in the contract
-    //**TODO: re-verify all math operations
-    //TODO adjust event with isContentManager
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SafeMath for uint64;
-    uint64 constant MAX_UINT64 = 18446744073709551615;
+    uint64 constant private MAX_UINT64 = 18446744073709551615;
 
     /*
     StorageOffer represents:
@@ -51,7 +48,7 @@ contract PinningManager {
     }
 
     // offerRegistry stores the open or closed StorageOffers per provider.
-    mapping(address => StorageOffer) offerRegistry;
+    mapping(address => StorageOffer)public offerRegistry;
 
     event CapacitySet(address indexed storer, uint256 capacity);
     event MaximumDurationSet(address indexed storer, uint128 maximumDuration);
@@ -75,7 +72,7 @@ contract PinningManager {
     /**
     @notice set the capacity, maximumDuration and price of a StorageOffer.
     @dev
-    - Use this function when initiating a storage offer or when the users wants to change more than one parameter at once. TODO: gas price comparison.
+    - Use this function when initiating a storage offer or when the users wants to change more than one parameter at once.
     maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
     - Exercise caution with assigning additional capacity when capacity is already taken.
         It may happen that when a lot of capcity is available and we release already-taken capacity, capacity overflows.
@@ -100,23 +97,41 @@ contract PinningManager {
     }
 
     /**
-    @notice set the capacity of a StorageOffer.
-    If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @notice increases the capacity of a StorageOffer.
     @dev exercise caution with assigning additional capacity when capacity is already taken.
     It may happen that when a lot of capcity is available and we release already-taken capacity, capacity overflows.
     We explicitely allow this overflow to happen on the smart-contract level,
     because the worst thing that can happen is that the provider now has less storage available than planned (in which case he can top it up himself).
     However, take care of this in the client. REF_CAPACITY
-    @param capacity the amount of bytes offered.
+    @param increase the increase in capacity (in bytes).
     */
-    function setStorageCapacity(uint128 capacity) public {
+    function increaseStorageCapacity(uint128 increase) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
-        _setCapacity(offer, capacity);
+        _setCapacity(offer, uint128(offer.capacity.add(increase)));
+    }
+
+    /**
+    @notice decreases the capacity of a StorageOffer.
+    @dev use function stopStorage if you want to set the capacity to 0 (and thereby stop the StorageOffer)
+    @param decrease the decrease in capacity (in bytes).
+    */
+    function decreaseStorageCapacity(uint128 decrease) public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        _setCapacity(offer, uint128(offer.capacity.sub(decrease)));
+    }
+
+     /**
+    @notice stops the StorageOffer.
+    @dev when capacity is set to 0, no new offer can be taken and no existing offers can be prolonged. All existing offers are still valid for the amount of periods still deposited.
+    */
+    function stopStorage() public {
+        StorageOffer storage offer = offerRegistry[msg.sender];
+        _setCapacity(offer, 0);
     }
 
     /**
     @notice set the price for a StorageOffer.
-    @dev 
+    @dev
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
     - maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
     @param periods the offered periods. Length must be equal to pricesForPeriods.
@@ -131,7 +146,7 @@ contract PinningManager {
 
     /**
     @notice set the maximumDuration for a StorageOffer.
-    @dev 
+    @dev
     - maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
     - make sure that any period is never more than a maximumDuration as this can never be accepted and hence is pointless
 
