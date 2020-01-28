@@ -21,7 +21,7 @@
   "homepage": "https://github.com/rsksmart/rds-contracts#readme",
   "devDependencies": {
     "@openzeppelin/contracts": "^2.4.0",
-    "@openzeppelin/test-helpers": "^0.5.3",
+    "@openzeppelin/test-helpers": "^0.5.4",
     "truffle": "^5.1.10"
   },
   "dependencies": {
