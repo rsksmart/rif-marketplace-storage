@@ -1,11 +1,12 @@
 {
-  "name": "rds-contracts",
+  "name": "@rsksmart/rif-martketplace-storage-pinning",
   "version": "0.0.1",
   "description": "contracts for incentivized pinning",
   "main": "truffle-config.js",
   "directories": {
     "test": "test"
   },
+  "files": ["build/contracts"],
   "scripts": {
     "test": "truffle test"
   },
@@ -22,9 +23,7 @@
   "devDependencies": {
     "@openzeppelin/contracts": "^2.5.0",
     "@openzeppelin/test-helpers": "^0.5.5",
-    "truffle": "^5.1.19"
-  },
-  "dependencies": {
+    "truffle": "^5.1.19",
     "chai": "^4.2.0",
     "dotenv": "^8.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
