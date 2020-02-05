@@ -6,9 +6,13 @@
   "directories": {
     "test": "test"
   },
-  "files": ["build/contracts"],
+  "files": [
+    "build/contracts",
+    "types"
+  ],
   "scripts": {
-    "test": "truffle test"
+    "test": "truffle test",
+    "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/PinningManager.json && typechain --target=web3-v2 build/contracts/PinningManager.json && typechain --target=truffle build/contracts/PinningManager.json && typechain --target=ethers build/contracts/PinningManager.json"
   },
   "repository": {
     "type": "git",
@@ -27,6 +31,12 @@
     "chai": "^4.2.0",
     "dotenv": "^8.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
-    "truffle-security": "^1.6.2"
+    "truffle-security": "^1.7.1",
+    "typechain": "^1.0.5",
+    "typechain-target-ethers": "^1.0.4",
+    "typechain-target-truffle": "^1.0.2",
+    "typechain-target-web3-v1": "^1.0.4",
+    "typechain-target-web3-v2": "^1.0.0",
+    "typescript": "^3.8.3"
   }
 }
