@@ -32780,8 +32780,8 @@
         }
       },
       "links": {},
-      "address": "0xc71e5b38C90F28886a49414acEff9d5EFc31e86c",
-      "transactionHash": "0xe7add9496a473a501c9a3789e7e4fe206a431ccc17d8773c9e3320c800936458"
+      "address": "0x5c419C93A2E8cad1e8024ca32216c56602b39bb6",
+      "transactionHash": "0x8966fa1c34426e6f8e7dc447d13a23f3d54b0ae1e58509214a881c8d78adfa6b"
     },
     "1580216067728": {
       "events": {
@@ -32970,7 +32970,7 @@
     }
   },
   "schemaVersion": "3.0.22",
-  "updatedAt": "2020-01-28T13:06:42.458Z",
+  "updatedAt": "2020-02-05T14:21:19.512Z",
   "networkType": "ethereum",
   "devdoc": {
     "author": "Rinke Hendriksen <rinke@iovlabs.org>",
