@@ -17,13 +17,13 @@ contract PinningManager {
      - capacity: the amount of bytes offered. When capacity is zero, already started Requests can't be prolonged or re-started
      - maximumDuration: the maximum time (in seconds) for which a customer can prepay.
      - prices: maps a period to a price
-     - RequestRegistry: the proposed and accepted Requests
+     - requestRegistry: the proposed and accepted Requests
     */
     struct StorageOffer {
         uint128 capacity;
         uint128 maximumDuration;
         mapping(uint64 => uint64) prices;
-        mapping(bytes32 => Request) RequestRegistry; // link to pinning requests that are accepted under this offer
+        mapping(bytes32 => Request) requestRegistry; // link to pinning requests that are accepted under this offer
     }
 
     /*
@@ -48,7 +48,7 @@ contract PinningManager {
     }
 
     // offerRegistry stores the open or closed StorageOffers per provider.
-    mapping(address => StorageOffer)public offerRegistry;
+    mapping(address => StorageOffer) public offerRegistry;
 
     event CapacitySet(address indexed storer, uint256 capacity);
     event MaximumDurationSet(address indexed storer, uint128 maximumDuration);
@@ -91,7 +91,7 @@ contract PinningManager {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setCapacity(offer, capacity);
         _setMaximumDuration(offer, maximumDuration);
-        for(uint8 i = 0; i <= periods.length; i++) {
+        for(uint8 i = 0; i < periods.length; i++) {
             _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
         }
     }
@@ -139,7 +139,7 @@ contract PinningManager {
     */
     function setStoragePrice(uint64[] memory periods, uint64[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
-        for(uint8 i = 0; i <= periods.length; i++) {
+        for(uint8 i = 0; i < periods.length; i++) {
             _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
         }
     }
@@ -177,7 +177,7 @@ contract PinningManager {
         require(chosenPrice != 0, "PinningManager: price doesn't exist for provider");
         require(msg.value != 0 && msg.value % chosenPrice == 0, "PinningManager: value sent not corresponding to price");
         StorageOffer storage offer = offerRegistry[provider];
-        Request storage request = offer.RequestRegistry[requestReference];
+        Request storage request = offer.requestRegistry[requestReference];
         // NO_OVERFLOW reasoning. See: REF_DURATION
         bool isPastCurrentEndTime = (request.startDate + request.numberOfPeriodsDeposited) * request.chosenPeriod < now;
         require(
@@ -234,7 +234,7 @@ contract PinningManager {
     */
     function stopRequestBefore(bytes32[] memory fileReference, address provider, bool fromContentManager) public {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
-        Request storage request = offerRegistry[provider].RequestRegistry[requestReference];
+        Request storage request = offerRegistry[provider].requestRegistry[requestReference];
         require(request.startDate == 0, "PinningManager: request was already accepted");
         //NO_OVERFLOW reasoning: we already verified: REF_MAX_TRANSFER
         uint256 toTransfer = request.numberOfPeriodsDeposited * request.chosenPrice;
@@ -248,7 +248,7 @@ contract PinningManager {
     @param requestReference the keccak256 hash of the bidder and the fileReference or the address of the contentManager (see: getRequestReference)
     */
     function acceptRequest(bytes32 requestReference) public {
-        Request storage request = offerRegistry[msg.sender].RequestRegistry[requestReference];
+        Request storage request = offerRegistry[msg.sender].requestRegistry[requestReference];
         require(request.numberOfPeriodsDeposited != 0);
         //NO_OVERFLOW reasoning: verified in function newRequest
         //NO_DEADLOCK reasoning: if this reverts, we can just not accept the request, and the requester can get his money via stopRequestBefore
@@ -270,7 +270,7 @@ contract PinningManager {
     function topUpRequest(bytes32[] memory fileReference, address provider, bool fromContentManager) public payable {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
         StorageOffer storage offer = offerRegistry[provider];
-        Request storage request = offer.RequestRegistry[requestReference];
+        Request storage request = offer.requestRegistry[requestReference];
         require(offer.capacity != 0, "PinningManager: provider discontinued service");
         require(request.startDate != 0, "PinningManager: Request not active");
         require(offer.prices[request.chosenPeriod] != 0, "PinningManager: price not available anymore");
@@ -304,7 +304,7 @@ contract PinningManager {
     */
     function stopRequestDuring(bytes32[] memory fileReference, address provider, bool fromContentManager) public payable {
         bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
-        Request storage request = offerRegistry[provider].RequestRegistry[requestReference];
+        Request storage request = offerRegistry[provider].requestRegistry[requestReference];
         // NO_OVERFLOW reasoning: startDate is always less than now. request.chosenPeriod is verified not to be 0 in function: newRequest
         uint256 periodsPast = ((now - request.startDate) / request.chosenPeriod) + 1;
         require(request.numberOfPeriodsWithdrawn + periodsPast < request.numberOfPeriodsDeposited, "PinningManager: request expired or in last period");
@@ -325,8 +325,8 @@ contract PinningManager {
     */
     function withdrawEarnings(bytes32[] memory requestReferences) public {
         uint256 toTransfer;
-        for(uint8 i = 0; i <= requestReferences.length; i++) {
-            Request storage request = offerRegistry[msg.sender].RequestRegistry[requestReferences[i]];
+        for(uint8 i = 0; i < requestReferences.length; i++) {
+            Request storage request = offerRegistry[msg.sender].requestRegistry[requestReferences[i]];
             require(request.startDate != 0, "PinningManager: Request not active");
             // check if request is expired
             //NO_OVERFLOW REASONING: see REF_DURATION
