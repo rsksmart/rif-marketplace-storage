@@ -87,7 +87,7 @@ contract PinningManager {
     @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
-    @param message the storageProvider may include a message (e.g. his nodeID). Message should be structured (e.g. first byte specifies message type, followed with message)
+    @param message the storageProvider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
     function setStorageOffer(uint128 capacity,
         uint128 maximumDuration,
@@ -168,7 +168,7 @@ contract PinningManager {
     }
 
     /**
-    @param message the storageProvider may send a message (e.g. his nodeID). Message should be structured (e.g. first byte specifies message type, followed with message)
+    @param message the storageProvider may send a message (e.g. his nodeID). Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
     function emitMessage(bytes32[]memory message) public {
         _emitMessage(message);
