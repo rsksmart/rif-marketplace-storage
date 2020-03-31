@@ -34,7 +34,6 @@ contract PinningManager {
      - numberOfPeriodsDeposited: number of periods (chosenPrice.duration seconds) that is deposited in the contracts.
        At startDate * numberOfPeriodsDeposited seconds the Request expires unless topped up in the meantime
      - numberOfPeriodsWithdrawn how many periods are withdrawn from the numberOfPeriodsDeposited. Provider can withdraw every period seconds since the start
-     - usesContentManager: t.b.d.
      - startDate: when request was accepted
     */
     struct Request {
@@ -42,7 +41,6 @@ contract PinningManager {
         uint64 chosenPeriod;
         uint64 numberOfPeriodsDeposited;
         uint64 numberOfPeriodsWithdrawn;
-        bool usesContentManager;
         uint120 size;
         uint128 startDate;
     }
@@ -61,7 +59,6 @@ contract PinningManager {
         address indexed provider,
         uint120 size,
         uint64 period,
-        bool usesContentManager,
         uint256 deposited
     );
     event RequestTopUp(bytes32 indexed requestReference, uint256 deposited);
@@ -179,17 +176,14 @@ contract PinningManager {
     @notice request to fill a storageOffer. After requesting, an offer must be accepted by provider to become active.
     @dev if Request was active before, is expired and final payout is not yet done, final payout can be triggered by proposer here.
     The to-be-pinned file's size in bytes (rounded up) must be equal in size to param size.
-    @param fileReference the reference to the to-be-pinned file (when contentManager is not used)
-    When called by a ContentManager is used, this fileReference can be a nonce (such that a contentManager smart-contract can be used to request pinning for multiple files)
+    @param fileReference the reference to the to-be-pinned file
     @param provider the provider from which is proposed to take a StorageOffer.
     @param size the size of the to-be-pinned file in bytes (rounded up).
     @param period the chosen period (seconds after which a Request can be cancelled and left-over money refunded).
-    @param contentManager if not equal to 0 address, we use this address to manage content and funds. WARNING: contentManager MUST adhere to the contentManager ABI.
     */
-    function newRequest(bytes32[] memory fileReference, address payable provider, uint120 size, uint64 period, address contentManager) public payable {
+    function newRequest(bytes32[] memory fileReference, address payable provider, uint120 size, uint64 period) public payable {
         require(period != 0, "PinningManager: period of 0 not allowed");
-        bool usesContentManager = contentManager != address(0);
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference, usesContentManager);
+        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         uint64 chosenPrice = offerRegistry[provider].prices[period];
         require(chosenPrice != 0, "PinningManager: price doesn't exist for provider");
         require(msg.value != 0 && msg.value % chosenPrice == 0, "PinningManager: value sent not corresponding to price");
@@ -230,27 +224,23 @@ contract PinningManager {
         request.chosenPrice = chosenPrice;
         request.chosenPeriod = period;
         request.numberOfPeriodsDeposited = uint64(numberOfPeriodsDeposited);
-        request.usesContentManager = usesContentManager;
         emit RequestMade(
             fileReference,
             msg.sender,
             provider,
             size,
             period,
-            usesContentManager,
             msg.value
         );
     }
 
     /**
     @notice stops a Request before it is accepted and transfers all money paid in.
-    @param fileReference the reference to the to-be-pinned file (when contentManager is not used)
-    When called by a ContentManager is used, this fileReference can be a nonce (such that a contentManager smart-contract can be used to request pinning for multiple files)
+    @param fileReference the reference to the to-be-pinned file
     @param provider the provider from which is proposed to take a StorageOffer.
-    @param fromContentManager set to true if the caller is a contentManager
     */
-    function stopRequestBefore(bytes32[] memory fileReference, address provider, bool fromContentManager) public {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
+    function stopRequestBefore(bytes32[] memory fileReference, address provider) public {
+        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         Request storage request = offerRegistry[provider].requestRegistry[requestReference];
         require(request.startDate == 0, "PinningManager: request was already accepted");
         //NO_OVERFLOW reasoning: we already verified: REF_MAX_TRANSFER
@@ -262,7 +252,7 @@ contract PinningManager {
 
     /**
     @notice accepts a request. From now on, the provider is responsible for pinning the file
-    @param requestReference the keccak256 hash of the bidder and the fileReference or the address of the contentManager (see: getRequestReference)
+    @param requestReference the keccak256 hash of the bidder and the fileReference(see: getRequestReference)
     */
     function acceptRequest(bytes32 requestReference) public {
         Request storage request = offerRegistry[msg.sender].requestRegistry[requestReference];
@@ -279,13 +269,11 @@ contract PinningManager {
     /**
     @notice extend the duration of the request.
     @dev any safeMath operations in this function don't cause a deadlock, as a possible revert just means we can't prolong the request for the desired duration\
-    @param fileReference the reference to the to-be-pinned file (when contentManager is not used)
-    When called by a ContentManager is used, this fileReference can be a nonce (such that a contentManager smart-contract can be used to request pinning for multiple files)
+    @param fileReference the reference to the to-be-pinned file
     @param provider the address of the provider of the StorageOffer.
-    @param fromContentManager set to true if the caller is a contentManager.
     */
-    function topUpRequest(bytes32[] memory fileReference, address provider, bool fromContentManager) public payable {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
+    function topUpRequest(bytes32[] memory fileReference, address provider) public payable {
+        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         StorageOffer storage offer = offerRegistry[provider];
         Request storage request = offer.requestRegistry[requestReference];
         require(offer.capacity != 0, "PinningManager: provider discontinued service");
@@ -314,17 +302,19 @@ contract PinningManager {
 
     /**
     @notice stops an active request.
-    @param fileReference the reference to the to-be-pinned file (when contentManager is not used)
-    When called by a ContentManager is used, this fileReference can be a nonce (such that a contentManager smart-contract can be used to request pinning for multiple files)
+    @param fileReference the reference to the to-be-pinned file
     @param provider the address of the provider of the StorageOffer.
-    @param fromContentManager set to true if the caller is a contentManager.
     */
-    function stopRequestDuring(bytes32[] memory fileReference, address provider, bool fromContentManager) public payable {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference, fromContentManager);
+    function stopRequestDuring(bytes32[] memory fileReference, address provider) public payable {
+        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         Request storage request = offerRegistry[provider].requestRegistry[requestReference];
         // NO_OVERFLOW reasoning: startDate is always less than now. request.chosenPeriod is verified not to be 0 in function: newRequest
         uint256 periodsPast = ((now - request.startDate) / request.chosenPeriod) + 1;
-        require(request.numberOfPeriodsWithdrawn + periodsPast < request.numberOfPeriodsDeposited, "PinningManager: request expired or in last period");
+        require(
+            request.numberOfPeriodsWithdrawn + periodsPast <
+            request.numberOfPeriodsDeposited,
+            "PinningManager: request expired or in last period"
+        );
         request.numberOfPeriodsDeposited = 0;
         request.numberOfPeriodsWithdrawn = 0;
         //NO_OVERFLOW reasoning: REF_CAPACITY
@@ -389,11 +379,7 @@ contract PinningManager {
         emit MessageEmitted(msg.sender, message);
     }
 
-    function getRequestReference(address bidder, bytes32[] memory fileReference, bool fromContentManager) public view returns(bytes32) {
-        if(fromContentManager) {
-            return keccak256(abi.encodePacked(msg.sender, fileReference));
-        } else {
-            return keccak256(abi.encodePacked(bidder, fileReference));
-        }
+    function getRequestReference(address bidder, bytes32[] memory fileReference) public view returns(bytes32) {
+        return keccak256(abi.encodePacked(bidder, fileReference));
     }
 }
