@@ -41,14 +41,14 @@ contract PinningManager {
         uint64 chosenPeriod;
         uint64 numberOfPeriodsDeposited;
         uint64 numberOfPeriodsWithdrawn;
-        uint120 size;
+        uint128 size;
         uint128 startDate;
     }
 
     // offerRegistry stores the open or closed StorageOffers per provider.
     mapping(address => StorageOffer) public offerRegistry;
 
-    event CapacitySet(address indexed storer, uint256 capacity);
+    event CapacitySet(address indexed storer, uint128 capacity);
     event MaximumDurationSet(address indexed storer, uint128 maximumDuration);
     event PriceSet(address indexed storer, uint64 period, uint64 price);
     event MessageEmitted(address indexed storer, bytes32[] message);
@@ -57,12 +57,11 @@ contract PinningManager {
         bytes32[] indexed fileReference,
         address indexed requester,
         address indexed provider,
-        uint120 size,
+        uint128 size,
         uint64 period,
         uint256 deposited
     );
     event RequestTopUp(bytes32 indexed requestReference, uint256 deposited);
-    event RequestAccepted(bytes32 indexed requestReference);
     event RequestStopped(bytes32 indexed requestReference);
 
     event EarningsWithdrawn(bytes32 indexed requestReference);
@@ -181,7 +180,7 @@ contract PinningManager {
     @param size the size of the to-be-pinned file in bytes (rounded up).
     @param period the chosen period (seconds after which a Request can be cancelled and left-over money refunded).
     */
-    function newRequest(bytes32[] memory fileReference, address payable provider, uint120 size, uint64 period) public payable {
+    function newRequest(bytes32[] memory fileReference, address payable provider, uint128 size, uint64 period) public payable {
         require(period != 0, "PinningManager: period of 0 not allowed");
         bytes32 requestReference = getRequestReference(msg.sender, fileReference);
         uint64 chosenPrice = offerRegistry[provider].prices[period];
@@ -202,16 +201,11 @@ contract PinningManager {
             uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn).mul(request.chosenPrice);
             request.numberOfPeriodsWithdrawn = 0;
             request.startDate = 0;
-            /*
-            ALLOWING_OVERFLOW reasoning: the worst that can happen is that the provider has less storage on offer than planned.
-            Verifying during all contract calls for no overflow is too costly to prevent such a small damage.
-            Damage can be easily re-done by calling setStorageCapacity. REF_CAPACITY
-            */
-            offerRegistry[msg.sender].capacity += request.size;
             provider.transfer(toTransfer); //TODO: transfer is not best practice: https://diligence.consensys.net/blog/2019/09/stop-using-soliditys-transfer-now/
             emit EarningsWithdrawn(requestReference);
         } else {
             request.size = size;
+            offer.capacity = uint128(offer.capacity.sub(size));
         }
         //NO_OVERFLOW reasoning: chosenPrice is verified to not be zero in this function call
         uint256 numberOfPeriodsDeposited = msg.value / chosenPrice;
@@ -220,10 +214,13 @@ contract PinningManager {
             numberOfPeriodsDeposited <= MAX_UINT64,
             "PinningManager: period too long"
         );
+        //NO_OVERFLOW reasoning: verified above
+        now.add(numberOfPeriodsDeposited * period); // overFlow check. If this doesn't pass, the duration of the offer overflows MAX_UINT64 and the contract may deadlock. REF_DURATION
         numberOfPeriodsDeposited.mul(chosenPrice); // overFlow check. If this doesn't pass, we might have issues transfering the maximum amount REF_MAX_TRANSFER
         request.chosenPrice = chosenPrice;
         request.chosenPeriod = period;
         request.numberOfPeriodsDeposited = uint64(numberOfPeriodsDeposited);
+        request.startDate = uint128(now);
         emit RequestMade(
             fileReference,
             msg.sender,
@@ -232,38 +229,6 @@ contract PinningManager {
             period,
             msg.value
         );
-    }
-
-    /**
-    @notice stops a Request before it is accepted and transfers all money paid in.
-    @param fileReference the reference to the to-be-pinned file
-    @param provider the provider from which is proposed to take a StorageOffer.
-    */
-    function stopRequestBefore(bytes32[] memory fileReference, address provider) public {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
-        Request storage request = offerRegistry[provider].requestRegistry[requestReference];
-        require(request.startDate == 0, "PinningManager: request was already accepted");
-        //NO_OVERFLOW reasoning: we already verified: REF_MAX_TRANSFER
-        uint256 toTransfer = request.numberOfPeriodsDeposited * request.chosenPrice;
-        request.numberOfPeriodsDeposited = 0;
-        msg.sender.transfer(toTransfer);
-        emit RequestStopped(requestReference);
-    }
-
-    /**
-    @notice accepts a request. From now on, the provider is responsible for pinning the file
-    @param requestReference the keccak256 hash of the bidder and the fileReference(see: getRequestReference)
-    */
-    function acceptRequest(bytes32 requestReference) public {
-        Request storage request = offerRegistry[msg.sender].requestRegistry[requestReference];
-        require(request.numberOfPeriodsDeposited != 0);
-        //NO_OVERFLOW reasoning: verified in function newRequest
-        //NO_DEADLOCK reasoning: if this reverts, we can just not accept the request, and the requester can get his money via stopRequestBefore
-        now.add(request.numberOfPeriodsDeposited * request.chosenPeriod); // overFlow check. If this doesn't pass, the duration of the offer overflows MAX_UINT64 and the contract may deadlock. REF_DURATION
-        request.startDate = uint128(now);
-        //TODO: strange behavior below. Why do we need to cast to uint128. If not, compiler complains
-        offerRegistry[msg.sender].capacity = uint128(offerRegistry[msg.sender].capacity.sub(request.size));
-        emit RequestAccepted(requestReference);
     }
 
     /**
