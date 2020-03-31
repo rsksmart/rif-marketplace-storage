@@ -53,6 +53,7 @@ contract PinningManager {
     event CapacitySet(address indexed storer, uint256 capacity);
     event MaximumDurationSet(address indexed storer, uint128 maximumDuration);
     event PriceSet(address indexed storer, uint64 period, uint64 price);
+    event MessageEmitted(address indexed storer, bytes32[] message);
 
     event RequestMade(
         bytes32[] indexed fileReference,
@@ -86,13 +87,22 @@ contract PinningManager {
     @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
     @param periods the offered periods. Length must be equal to pricesForPeriods.
     @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
+    @param message the storageProvider may include a message (e.g. his nodeID). Message should be structured (e.g. first byte specifies message type, followed with message)
     */
-    function setStorageOffer(uint128 capacity, uint128 maximumDuration, uint64[] memory periods, uint64[] memory pricesForPeriods) public {
+    function setStorageOffer(uint128 capacity,
+        uint128 maximumDuration,
+        uint64[] memory periods,
+        uint64[] memory pricesForPeriods,
+        bytes32[] memory message
+    ) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setCapacity(offer, capacity);
         _setMaximumDuration(offer, maximumDuration);
         for(uint8 i = 0; i <= periods.length; i++) {
             _setStoragePrice(offer, periods[i], pricesForPeriods[i]);
+        }
+        if (message.length > 0) {
+            _emitMessage(message);
         }
     }
 
@@ -155,6 +165,13 @@ contract PinningManager {
     function setMaximumDuration(uint128 maximumDuration) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
         _setMaximumDuration(offer, maximumDuration);
+    }
+
+    /**
+    @param message the storageProvider may send a message (e.g. his nodeID). Message should be structured (e.g. first byte specifies message type, followed with message)
+    */
+    function emitMessage(bytes32[]memory message) public {
+        _emitMessage(message);
     }
 
 
@@ -367,7 +384,11 @@ contract PinningManager {
         offer.prices[period] = price;
         emit PriceSet(msg.sender, period, price);
     }
-    
+
+    function _emitMessage(bytes32[] memory message) internal {
+        emit MessageEmitted(msg.sender, message);
+    }
+
     function getRequestReference(address bidder, bytes32[] memory fileReference, bool fromContentManager) public view returns(bytes32) {
         if(fromContentManager) {
             return keccak256(abi.encodePacked(msg.sender, fileReference));
