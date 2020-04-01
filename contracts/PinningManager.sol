@@ -196,7 +196,7 @@ contract PinningManager {
         StorageOffer storage offer = offerRegistry[provider];
         Request storage request = offer.RequestRegistry[requestReference];
         // NO_OVERFLOW reasoning. See: REF_DURATION
-        bool isPastCurrentEndTime = (request.startDate + request.numberOfPeriodsDeposited) * request.chosenPeriod < now;
+        bool isPastCurrentEndTime = request.startDate + request.numberOfPeriodsDeposited * request.chosenPeriod < now;
         require(
             request.startDate == 0 ||
             isPastCurrentEndTime,
