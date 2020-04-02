@@ -195,6 +195,8 @@ contract PinningManager {
             isPastCurrentEndTime,
             "PinningManager: Request already active"
         );
+
+        // If request exist from past, lets have clean state. Eq. force withdraw of previous money.
         if(isPastCurrentEndTime) {
             require(offer.capacity != 0, "PinningManager: provider discontinued service");
             //NO_OVERFLOW reasoning: numberOfPeriodsDeposited always bigger or equal to numberOfPeriodsWithdrawn
@@ -212,7 +214,7 @@ contract PinningManager {
         require(
             numberOfPeriodsDeposited.mul(period) <= offer.maximumDuration &&
             numberOfPeriodsDeposited <= MAX_UINT64,
-            "PinningManager: period too long"
+            "PinningManager: total period exceeds maximumDuration"
         );
         //NO_OVERFLOW reasoning: verified above
         now.add(numberOfPeriodsDeposited * period); // overFlow check. If this doesn't pass, the duration of the offer overflows MAX_UINT64 and the contract may deadlock. REF_DURATION
