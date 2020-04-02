@@ -182,7 +182,7 @@ contract PinningManager {
     */
     function newRequest(bytes32[] memory fileReference, address payable provider, uint128 size, uint64 period) public payable {
         require(period != 0, "PinningManager: period of 0 not allowed");
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
+        bytes32 requestReference = getRequestReference(fileReference);
         uint64 chosenPrice = offerRegistry[provider].prices[period];
         require(chosenPrice != 0, "PinningManager: price doesn't exist for provider");
         require(msg.value != 0 && msg.value % chosenPrice == 0, "PinningManager: value sent not corresponding to price");
@@ -238,7 +238,7 @@ contract PinningManager {
     @param provider the address of the provider of the StorageOffer.
     */
     function topUpRequest(bytes32[] memory fileReference, address provider) public payable {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
+        bytes32 requestReference = getRequestReference(fileReference);
         StorageOffer storage offer = offerRegistry[provider];
         Request storage request = offer.requestRegistry[requestReference];
         require(offer.capacity != 0, "PinningManager: provider discontinued service");
@@ -271,7 +271,7 @@ contract PinningManager {
     @param provider the address of the provider of the StorageOffer.
     */
     function stopRequestDuring(bytes32[] memory fileReference, address provider) public payable {
-        bytes32 requestReference = getRequestReference(msg.sender, fileReference);
+        bytes32 requestReference = getRequestReference(fileReference);
         Request storage request = offerRegistry[provider].requestRegistry[requestReference];
         // NO_OVERFLOW reasoning: startDate is always less than now. request.chosenPeriod is verified not to be 0 in function: newRequest
         uint256 periodsPast = ((now - request.startDate) / request.chosenPeriod) + 1;
@@ -344,7 +344,7 @@ contract PinningManager {
         emit MessageEmitted(msg.sender, message);
     }
 
-    function getRequestReference(address bidder, bytes32[] memory fileReference) public view returns(bytes32) {
-        return keccak256(abi.encodePacked(bidder, fileReference));
+    function getRequestReference(bytes32[] memory fileReference) public view returns(bytes32) {
+        return keccak256(abi.encodePacked(msg.sender, fileReference));
     }
 }
