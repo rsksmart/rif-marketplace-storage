@@ -22,7 +22,7 @@
   "devDependencies": {
     "@openzeppelin/contracts": "^2.5.0",
     "@openzeppelin/test-helpers": "^0.5.5",
-    "truffle": "^5.1.19"
+    "truffle": "^5.1.20"
   },
   "dependencies": {
     "chai": "^4.2.0",
