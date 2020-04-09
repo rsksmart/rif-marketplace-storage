@@ -198,7 +198,7 @@ contract PinningManager {
         );
 
         // If request exist from past, lets have clean state. Eq. force withdraw of previous money.
-        if(isPastCurrentEndTime && request.startDate ) {
+        if(isPastCurrentEndTime && request.startDate > 0 ) {
             require(offer.capacity != 0, "PinningManager: provider discontinued service");
             //NO_OVERFLOW reasoning: numberOfPeriodsDeposited always bigger or equal to numberOfPeriodsWithdrawn
             uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn).mul(request.chosenPrice);
