@@ -30,7 +30,7 @@ The client should be instructed to enforce the following semantics:
       - *IPFS Source* - Hash pointer to immutable data source.
       - *Contract Source* - Pointer to different smart-contract that handles the mutability (eq. adding/removing files) 
       - *IPNS Source* - [That is the future babe.](https://gph.is/1FD4aQ0)
-    - **Agreement** - Consumer create Agreement for specific Provider's Offer and it specify Data Source Reference
+    - **Agreement** - Consumer creates Agreement for a specific Provider's Offer, specifying and the corresponding Data Source
       - **Data Reference** - Pointer to Data Source
       - **Agreement Termination** - Consumer can decide to terminate the agreement, which will take effect after finishing of current billing period.
       - **Deposit Funds** - In order for Agreement to be active, it has to have available funds for each Billing Period renewal. Consumer can therefore deposit funds.
