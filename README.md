@@ -33,5 +33,5 @@ The client should be instructed to enforce the following semantics:
     - **Agreement** - Consumer creates Agreement for a specific Provider's Offer, specifying and the corresponding Data Source
       - **Data Reference** - Pointer to Data Source
       - **Agreement Termination** - Consumer can decide to terminate the agreement, which will take effect after finishing of current billing period.
-      - **Deposit Funds** - In order for Agreement to be active, it has to have available funds for each Billing Period renewal. Consumer can therefore deposit funds.
-      - **Payout Funds** - Upon finishing of a Billing Period, the Provider can request the funds for finished period to be transferred to him. 
+      - **Deposit Funds** - In order for an Agreement to be active, it needs to have available funds for each Billing Period renewal. Consumer can therefore deposit funds.
+      - **Payout Funds** - Upon finishing of a Billing Period, the Provider can request the funds for the finished periods to be transferred to him. 
