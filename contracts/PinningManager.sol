@@ -16,7 +16,7 @@ contract PinningManager {
     StorageOffer represents:
      - capacity: the amount of bytes offered. When capacity is zero, already started Requests can't be prolonged or re-started
      - maximumDuration: the maximum time (in seconds) for which a customer can prepay.
-     - prices: maps a period to a price
+     - prices: maps a period to a price. When a price is 0, the period is not offered.
      - requestRegistry: the proposed and accepted Requests
     */
     struct StorageOffer {
@@ -81,8 +81,8 @@ contract PinningManager {
     @param capacity the amount of bytes offered.
     If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param maximumDuration the maximum time (in seconds) for which a proposer can prepay. Prepaid bids can't be cancelled REF1.
-    @param periods the offered periods. Length must be equal to pricesForPeriods.
-    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
+    @param periods the offered periods. Length must be equal to the lenght of pricesForPeriods.
+    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
     @param message the storageProvider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
     function setStorageOffer(uint128 capacity,
@@ -138,10 +138,11 @@ contract PinningManager {
     /**
     @notice set the price for a StorageOffer.
     @dev
-    - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
+    - setting the price to 0 means that a particular period is not offered, which can be used to remove a period from the offer.
+    - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless.
     - maximumDuration must be smaller or equal to the longest period (NOT verified by smart-contract).
     @param periods the offered periods. Length must be equal to pricesForPeriods.
-    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods.
+    @param pricesForPeriods the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
     function setStoragePrice(uint64[] memory periods, uint64[] memory pricesForPeriods) public {
         StorageOffer storage offer = offerRegistry[msg.sender];
@@ -197,7 +198,7 @@ contract PinningManager {
         );
 
         // If request exist from past, lets have clean state. Eq. force withdraw of previous money.
-        if(isPastCurrentEndTime) {
+        if(isPastCurrentEndTime && request.startDate ) {
             require(offer.capacity != 0, "PinningManager: provider discontinued service");
             //NO_OVERFLOW reasoning: numberOfPeriodsDeposited always bigger or equal to numberOfPeriodsWithdrawn
             uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn).mul(request.chosenPrice);
@@ -209,7 +210,7 @@ contract PinningManager {
             request.size = size;
             offer.capacity = uint128(offer.capacity.sub(size));
         }
-        //NO_OVERFLOW reasoning: chosenPrice is verified to not be zero in this function call
+        //NO_ZERO_DIVISION reasoning: chosenPrice is verified to not be zero in this function call
         uint256 numberOfPeriodsDeposited = msg.value / chosenPrice;
         require(
             numberOfPeriodsDeposited.mul(period) <= offer.maximumDuration &&
