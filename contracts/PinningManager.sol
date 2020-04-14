@@ -248,7 +248,7 @@ contract PinningManager {
         //NO_OVERFLOW reasoning: see REF_DURATION
         require((request.startDate + request.numberOfPeriodsDeposited) * request.chosenPeriod <= now, "PinningManager: Request expired");
         //NO_OVERFLOW reasoning: chosenPrice is verified to not be zero in function call: newRequest
-        uint256 numberOfPeriodsDeposited = (msg.value  request.size ) / request.chosenPrice;
+        uint256 numberOfPeriodsDeposited = (msg.value / request.size ) / request.chosenPrice;
         require(
             (
                 //NO_OVERFLOW reasoning: chosenPeriod can't be zero, startDate always less or equal than now, periodsPast since startDate always less than periodsDeposited (as request is not epired, see line 242)
