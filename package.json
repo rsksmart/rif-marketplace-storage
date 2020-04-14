@@ -1,33 +1,52 @@
 {
   "name": "rds-contracts",
   "version": "0.0.1",
-  "description": "contracts for incentivized pinning",
-  "main": "truffle-config.js",
+  "description": "Contracts for incentivized pinning",
+  "keywords": [
+    "RIF",
+    "RSK",
+    "pinning"
+  ],
+  "homepage": "https://github.com/rsksmart/rif-marketplace-storage-pinning",
+  "bugs": {
+    "url": "https://github.com/rsksmart/rif-marketplace-storage-pinning/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rinke Hendriksen",
+    "email": "<rinke@iovlabs.org>"
+  },
+  "files": [
+    "types"
+  ],
   "directories": {
-    "test": "test"
+    "contracts": "contracts",
+    "test": "test/"
   },
-  "scripts": {
-    "test": "truffle test"
-  },
+  "main": "truffle-config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rsksmart/rds-contracts.git"
+    "url": "https://github.com/rsksmart/rif-marketplace-storage-pinning"
   },
-  "author": "Rinke Hendriksen <rinke@iovlabs.org>",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/rsksmart/rds-contracts/issues"
-  },
-  "homepage": "https://github.com/rsksmart/rds-contracts#readme",
-  "devDependencies": {
-    "@openzeppelin/contracts": "^2.5.0",
-    "@openzeppelin/test-helpers": "^0.5.5",
-    "truffle": "^5.1.19"
+  "scripts": {
+    "test": "truffle test",
+    "lint": "tasegir lint"
   },
   "dependencies": {
-    "chai": "^4.2.0",
     "dotenv": "^8.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "truffle-security": "^1.6.2"
-  }
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "^2.5.0",
+    "@openzeppelin/test-helpers": "^0.5.5",
+    "chai": "^4.2.0",
+    "tasegir": "^1.7.1",
+    "truffle": "^5.1.19"
+  },
+  "engines": {
+    "node": ">=10.0.0",
+    "npm": ">=6.0.0"
+  },
+  "types": "types/index.d.ts"
 }
