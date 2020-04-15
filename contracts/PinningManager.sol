@@ -54,7 +54,7 @@ contract PinningManager {
     event MessageEmitted(address indexed storer, bytes32[] message);
 
     event RequestMade(
-        bytes32[] indexed fileReference,
+        bytes32[] fileReference,
         address indexed requester,
         address indexed provider,
         uint128 size,
