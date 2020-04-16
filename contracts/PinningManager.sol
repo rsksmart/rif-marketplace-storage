@@ -171,7 +171,6 @@ contract PinningManager {
         _emitMessage(message);
     }
 
-
     /**
     @notice request to fill a storageOffer. After requesting, an offer must be accepted by provider to become active.
     @dev if Request was active before, is expired and final payout is not yet done, final payout can be triggered by proposer here.
@@ -196,14 +195,12 @@ contract PinningManager {
             isPastCurrentEndTime,
             "PinningManager: Request already active"
         );
-
         // If request exist from past, lets have clean state. Eq. force withdraw of previous money.
         if(isPastCurrentEndTime && request.startDate > 0 ) {
             require(offer.capacity != 0, "PinningManager: provider discontinued service");
             //NO_OVERFLOW reasoning: numberOfPeriodsDeposited always bigger or equal to numberOfPeriodsWithdrawn
             uint256 toTransfer = (request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn).mul(request.chosenPrice);
             request.numberOfPeriodsWithdrawn = 0;
-            request.startDate = 0;
             provider.transfer(toTransfer); //TODO: transfer is not best practice: https://diligence.consensys.net/blog/2019/09/stop-using-soliditys-transfer-now/
             emit EarningsWithdrawn(requestReference);
         } else {
@@ -251,7 +248,7 @@ contract PinningManager {
         //NO_OVERFLOW reasoning: see REF_DURATION
         require((request.startDate + request.numberOfPeriodsDeposited) * request.chosenPeriod <= now, "PinningManager: Request expired");
         //NO_OVERFLOW reasoning: chosenPrice is verified to not be zero in function call: newRequest
-        uint256 numberOfPeriodsDeposited = msg.value / request.chosenPrice;
+        uint256 numberOfPeriodsDeposited = (msg.value / request.size ) / request.chosenPrice;
         require(
             (
                 //NO_OVERFLOW reasoning: chosenPeriod can't be zero, startDate always less or equal than now, periodsPast since startDate always less than periodsDeposited (as request is not epired, see line 242)
@@ -295,7 +292,9 @@ contract PinningManager {
 
     /**
     @notice withdraws the to-withdraw balance of one or more Requests
-    @dev any safeMath operations in this function don't cause a deadlock, as a possible revert just means we have to add less requestReferences
+    @dev 
+    - any safeMath operations in this function don't cause a deadlock, as a possible revert just means we have to add less requestReferences
+    - StorageProviders must call an expired request themselves as soon as the request is expired, to add back the capacity.
     @param requestReferences reference to one or more Requests
     */
     function withdrawEarnings(bytes32[] memory requestReferences) public {
@@ -308,13 +307,16 @@ contract PinningManager {
             if((request.startDate + request.numberOfPeriodsDeposited) * request.chosenPeriod < now) {
                 //NO_OVERFLOW reasoning: numberOfPeriodsWithdrawn is always less than or equal to numberOfPeriodsDeposited and REF_MAX_TRANSFER
                 toTransfer = toTransfer.add((request.numberOfPeriodsDeposited - request.numberOfPeriodsWithdrawn) * request.chosenPrice);
+                //reset request to clean state
                 request.numberOfPeriodsWithdrawn = 0;
                 request.numberOfPeriodsDeposited = 0;
+                request.startDate = 0;
+                // check if StorageOffer is still active
                 if(offerRegistry[msg.sender].capacity != 0) {
                     //ALLOW_OVERFLOW reasoning: see: REF_CAPACITY
+                    // add back capacity
                     offerRegistry[msg.sender].capacity = offerRegistry[msg.sender].capacity + request.size;
                 }
-                request.startDate = 0;
             } else {
                 // NO_OVERFLOW reasoning: startDate is always less than now. request.chosenPeriod is verified not to be 0 in function: newRequest
                 uint256 periodsPast = (now - request.startDate) /  request.chosenPeriod;
@@ -328,6 +330,9 @@ contract PinningManager {
         msg.sender.transfer(toTransfer);
     }
 
+    function getRequestReference(bytes32[] memory fileReference) public view returns(bytes32) {
+        return keccak256(abi.encodePacked(msg.sender, fileReference));
+    }
     function _setCapacity(StorageOffer storage offer, uint128 capacity) internal {
         offer.capacity = capacity;
         emit CapacitySet(msg.sender, capacity);
@@ -347,7 +352,5 @@ contract PinningManager {
         emit MessageEmitted(msg.sender, message);
     }
 
-    function getRequestReference(bytes32[] memory fileReference) public view returns(bytes32) {
-        return keccak256(abi.encodePacked(msg.sender, fileReference));
-    }
+
 }
