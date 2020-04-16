@@ -1,5 +1,5 @@
 {
-  "name": "rds-contracts",
+  "name": "@rsksmart/rif-marketplace-storage-pinning",
   "version": "0.0.1",
   "description": "Contracts for incentivized pinning",
   "keywords": [
@@ -32,17 +32,14 @@
     "test": "truffle test",
     "lint": "tasegir lint"
   },
-  "dependencies": {
-    "dotenv": "^8.2.0",
-    "truffle-hdwallet-provider": "^1.0.17",
-    "truffle-security": "^1.6.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@openzeppelin/contracts": "^2.5.0",
     "@openzeppelin/test-helpers": "^0.5.5",
     "chai": "^4.2.0",
     "tasegir": "^1.7.1",
-    "truffle": "^5.1.19"
+    "truffle": "^5.1.19",
+    "truffle-security": "^1.6.2"
   },
   "engines": {
     "node": ">=10.0.0",
