@@ -15,11 +15,12 @@ interface PinningManagerInterface extends Interface {
     offerRegistry: TypedFunctionDescription<{ encode([]: [string]): string }>;
 
     setStorageOffer: TypedFunctionDescription<{
-      encode([capacity, maximumDuration, periods, pricesForPeriods]: [
+      encode([capacity, maximumDuration, periods, pricesForPeriods, message]: [
         BigNumberish,
         BigNumberish,
         BigNumberish[],
-        BigNumberish[]
+        BigNumberish[],
+        Arrayish[]
       ]): string;
     }>;
 
@@ -44,42 +45,25 @@ interface PinningManagerInterface extends Interface {
       encode([maximumDuration]: [BigNumberish]): string;
     }>;
 
+    emitMessage: TypedFunctionDescription<{
+      encode([message]: [Arrayish[]]): string;
+    }>;
+
     newRequest: TypedFunctionDescription<{
-      encode([fileReference, provider, size, period, contentManager]: [
+      encode([fileReference, provider, size, period]: [
         Arrayish[],
         string,
         BigNumberish,
-        BigNumberish,
-        string
+        BigNumberish
       ]): string;
-    }>;
-
-    stopRequestBefore: TypedFunctionDescription<{
-      encode([fileReference, provider, fromContentManager]: [
-        Arrayish[],
-        string,
-        boolean
-      ]): string;
-    }>;
-
-    acceptRequest: TypedFunctionDescription<{
-      encode([requestReference]: [Arrayish]): string;
     }>;
 
     topUpRequest: TypedFunctionDescription<{
-      encode([fileReference, provider, fromContentManager]: [
-        Arrayish[],
-        string,
-        boolean
-      ]): string;
+      encode([fileReference, provider]: [Arrayish[], string]): string;
     }>;
 
     stopRequestDuring: TypedFunctionDescription<{
-      encode([fileReference, provider, fromContentManager]: [
-        Arrayish[],
-        string,
-        boolean
-      ]): string;
+      encode([fileReference, provider]: [Arrayish[], string]): string;
     }>;
 
     withdrawEarnings: TypedFunctionDescription<{
@@ -87,11 +71,7 @@ interface PinningManagerInterface extends Interface {
     }>;
 
     getRequestReference: TypedFunctionDescription<{
-      encode([bidder, fileReference, fromContentManager]: [
-        string,
-        Arrayish[],
-        boolean
-      ]): string;
+      encode([fileReference]: [Arrayish[]]): string;
     }>;
   };
 
@@ -108,6 +88,10 @@ interface PinningManagerInterface extends Interface {
       encodeTopics([storer, maximumDuration]: [string | null, null]): string[];
     }>;
 
+    MessageEmitted: TypedEventDescription<{
+      encodeTopics([storer, message]: [string | null, null]): string[];
+    }>;
+
     PriceSet: TypedEventDescription<{
       encodeTopics([storer, period, price]: [
         string | null,
@@ -116,24 +100,20 @@ interface PinningManagerInterface extends Interface {
       ]): string[];
     }>;
 
-    RequestAccepted: TypedEventDescription<{
-      encodeTopics([requestReference]: [Arrayish | null]): string[];
-    }>;
-
     RequestMade: TypedEventDescription<{
       encodeTopics([
+        requestReference,
         fileReference,
         requester,
         provider,
         size,
         period,
-        usesContentManager,
         deposited
       ]: [
+        null,
         Arrayish[] | null,
         string | null,
         string | null,
-        null,
         null,
         null,
         null
@@ -184,6 +164,7 @@ export class PinningManager extends Contract {
       maximumDuration: BigNumberish,
       periods: BigNumberish[],
       pricesForPeriods: BigNumberish[],
+      message: Arrayish[],
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
@@ -210,38 +191,28 @@ export class PinningManager extends Contract {
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
+    emitMessage(
+      message: Arrayish[],
+      overrides?: TransactionOverrides
+    ): Promise<ContractTransaction>;
+
     newRequest(
       fileReference: Arrayish[],
       provider: string,
       size: BigNumberish,
       period: BigNumberish,
-      contentManager: string,
-      overrides?: TransactionOverrides
-    ): Promise<ContractTransaction>;
-
-    stopRequestBefore(
-      fileReference: Arrayish[],
-      provider: string,
-      fromContentManager: boolean,
-      overrides?: TransactionOverrides
-    ): Promise<ContractTransaction>;
-
-    acceptRequest(
-      requestReference: Arrayish,
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
     topUpRequest(
       fileReference: Arrayish[],
       provider: string,
-      fromContentManager: boolean,
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
     stopRequestDuring(
       fileReference: Arrayish[],
       provider: string,
-      fromContentManager: boolean,
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
@@ -250,11 +221,7 @@ export class PinningManager extends Contract {
       overrides?: TransactionOverrides
     ): Promise<ContractTransaction>;
 
-    getRequestReference(
-      bidder: string,
-      fileReference: Arrayish[],
-      fromContentManager: boolean
-    ): Promise<string>;
+    getRequestReference(fileReference: Arrayish[]): Promise<string>;
   };
 
   offerRegistry(
@@ -271,6 +238,7 @@ export class PinningManager extends Contract {
     maximumDuration: BigNumberish,
     periods: BigNumberish[],
     pricesForPeriods: BigNumberish[],
+    message: Arrayish[],
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
@@ -297,38 +265,28 @@ export class PinningManager extends Contract {
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
+  emitMessage(
+    message: Arrayish[],
+    overrides?: TransactionOverrides
+  ): Promise<ContractTransaction>;
+
   newRequest(
     fileReference: Arrayish[],
     provider: string,
     size: BigNumberish,
     period: BigNumberish,
-    contentManager: string,
-    overrides?: TransactionOverrides
-  ): Promise<ContractTransaction>;
-
-  stopRequestBefore(
-    fileReference: Arrayish[],
-    provider: string,
-    fromContentManager: boolean,
-    overrides?: TransactionOverrides
-  ): Promise<ContractTransaction>;
-
-  acceptRequest(
-    requestReference: Arrayish,
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
   topUpRequest(
     fileReference: Arrayish[],
     provider: string,
-    fromContentManager: boolean,
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
   stopRequestDuring(
     fileReference: Arrayish[],
     provider: string,
-    fromContentManager: boolean,
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
@@ -337,11 +295,7 @@ export class PinningManager extends Contract {
     overrides?: TransactionOverrides
   ): Promise<ContractTransaction>;
 
-  getRequestReference(
-    bidder: string,
-    fileReference: Arrayish[],
-    fromContentManager: boolean
-  ): Promise<string>;
+  getRequestReference(fileReference: Arrayish[]): Promise<string>;
 
   filters: {
     CapacitySet(storer: string | null, capacity: null): EventFilter;
@@ -353,17 +307,17 @@ export class PinningManager extends Contract {
       maximumDuration: null
     ): EventFilter;
 
+    MessageEmitted(storer: string | null, message: null): EventFilter;
+
     PriceSet(storer: string | null, period: null, price: null): EventFilter;
 
-    RequestAccepted(requestReference: Arrayish | null): EventFilter;
-
     RequestMade(
+      requestReference: null,
       fileReference: Arrayish[] | null,
       requester: string | null,
       provider: string | null,
       size: null,
       period: null,
-      usesContentManager: null,
       deposited: null
     ): EventFilter;
 
@@ -382,7 +336,8 @@ export class PinningManager extends Contract {
       capacity: BigNumberish,
       maximumDuration: BigNumberish,
       periods: BigNumberish[],
-      pricesForPeriods: BigNumberish[]
+      pricesForPeriods: BigNumberish[],
+      message: Arrayish[]
     ): Promise<BigNumber>;
 
     increaseStorageCapacity(increase: BigNumberish): Promise<BigNumber>;
@@ -398,40 +353,27 @@ export class PinningManager extends Contract {
 
     setMaximumDuration(maximumDuration: BigNumberish): Promise<BigNumber>;
 
+    emitMessage(message: Arrayish[]): Promise<BigNumber>;
+
     newRequest(
       fileReference: Arrayish[],
       provider: string,
       size: BigNumberish,
-      period: BigNumberish,
-      contentManager: string
+      period: BigNumberish
     ): Promise<BigNumber>;
-
-    stopRequestBefore(
-      fileReference: Arrayish[],
-      provider: string,
-      fromContentManager: boolean
-    ): Promise<BigNumber>;
-
-    acceptRequest(requestReference: Arrayish): Promise<BigNumber>;
 
     topUpRequest(
       fileReference: Arrayish[],
-      provider: string,
-      fromContentManager: boolean
+      provider: string
     ): Promise<BigNumber>;
 
     stopRequestDuring(
       fileReference: Arrayish[],
-      provider: string,
-      fromContentManager: boolean
+      provider: string
     ): Promise<BigNumber>;
 
     withdrawEarnings(requestReferences: Arrayish[]): Promise<BigNumber>;
 
-    getRequestReference(
-      bidder: string,
-      fileReference: Arrayish[],
-      fromContentManager: boolean
-    ): Promise<BigNumber>;
+    getRequestReference(fileReference: Arrayish[]): Promise<BigNumber>;
   };
 }

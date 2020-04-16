@@ -21,6 +21,7 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       maximumDuration: number | BigNumber | string,
       periods: (number | BigNumber | string)[],
       pricesForPeriods: (number | BigNumber | string)[],
+      message: (string | BigNumber)[],
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse>;
     call(
@@ -28,6 +29,7 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       maximumDuration: number | BigNumber | string,
       periods: (number | BigNumber | string)[],
       pricesForPeriods: (number | BigNumber | string)[],
+      message: (string | BigNumber)[],
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
@@ -35,6 +37,7 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       maximumDuration: number | BigNumber | string,
       periods: (number | BigNumber | string)[],
       pricesForPeriods: (number | BigNumber | string)[],
+      message: (string | BigNumber)[],
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
@@ -42,6 +45,7 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       maximumDuration: number | BigNumber | string,
       periods: (number | BigNumber | string)[],
       pricesForPeriods: (number | BigNumber | string)[],
+      message: (string | BigNumber)[],
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
   };
@@ -135,13 +139,31 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
     ): Promise<number>;
   };
 
+  emitMessage: {
+    (
+      message: (string | BigNumber)[],
+      txDetails?: Truffle.TransactionDetails
+    ): Promise<Truffle.TransactionResponse>;
+    call(
+      message: (string | BigNumber)[],
+      txDetails?: Truffle.TransactionDetails
+    ): Promise<void>;
+    sendTransaction(
+      message: (string | BigNumber)[],
+      txDetails?: Truffle.TransactionDetails
+    ): Promise<string>;
+    estimateGas(
+      message: (string | BigNumber)[],
+      txDetails?: Truffle.TransactionDetails
+    ): Promise<number>;
+  };
+
   newRequest: {
     (
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
       size: number | BigNumber | string,
       period: number | BigNumber | string,
-      contentManager: string | BigNumber,
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse>;
     call(
@@ -149,7 +171,6 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       provider: string | BigNumber,
       size: number | BigNumber | string,
       period: number | BigNumber | string,
-      contentManager: string | BigNumber,
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
@@ -157,7 +178,6 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       provider: string | BigNumber,
       size: number | BigNumber | string,
       period: number | BigNumber | string,
-      contentManager: string | BigNumber,
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
@@ -165,53 +185,6 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
       provider: string | BigNumber,
       size: number | BigNumber | string,
       period: number | BigNumber | string,
-      contentManager: string | BigNumber,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<number>;
-  };
-
-  stopRequestBefore: {
-    (
-      fileReference: (string | BigNumber)[],
-      provider: string | BigNumber,
-      fromContentManager: boolean,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<Truffle.TransactionResponse>;
-    call(
-      fileReference: (string | BigNumber)[],
-      provider: string | BigNumber,
-      fromContentManager: boolean,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<void>;
-    sendTransaction(
-      fileReference: (string | BigNumber)[],
-      provider: string | BigNumber,
-      fromContentManager: boolean,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<string>;
-    estimateGas(
-      fileReference: (string | BigNumber)[],
-      provider: string | BigNumber,
-      fromContentManager: boolean,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<number>;
-  };
-
-  acceptRequest: {
-    (
-      requestReference: string | BigNumber,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<Truffle.TransactionResponse>;
-    call(
-      requestReference: string | BigNumber,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<void>;
-    sendTransaction(
-      requestReference: string | BigNumber,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<string>;
-    estimateGas(
-      requestReference: string | BigNumber,
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
   };
@@ -220,25 +193,21 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
     (
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse>;
     call(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
   };
@@ -247,25 +216,21 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
     (
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse>;
     call(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
       fileReference: (string | BigNumber)[],
       provider: string | BigNumber,
-      fromContentManager: boolean,
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
   };
@@ -290,9 +255,7 @@ export interface PinningManagerInstance extends Truffle.ContractInstance {
   };
 
   getRequestReference(
-    bidder: string | BigNumber,
     fileReference: (string | BigNumber)[],
-    fromContentManager: boolean,
     txDetails?: Truffle.TransactionDetails
   ): Promise<string>;
 }

@@ -34,7 +34,8 @@ export class PinningManager extends Contract {
       capacity: number | string,
       maximumDuration: number | string,
       periods: (number | string)[],
-      pricesForPeriods: (number | string)[]
+      pricesForPeriods: (number | string)[],
+      message: (string | number[])[]
     ): TransactionObject<void>;
 
     increaseStorageCapacity(increase: number | string): TransactionObject<void>;
@@ -52,32 +53,23 @@ export class PinningManager extends Contract {
       maximumDuration: number | string
     ): TransactionObject<void>;
 
+    emitMessage(message: (string | number[])[]): TransactionObject<void>;
+
     newRequest(
       fileReference: (string | number[])[],
       provider: string,
       size: number | string,
-      period: number | string,
-      contentManager: string
+      period: number | string
     ): TransactionObject<void>;
-
-    stopRequestBefore(
-      fileReference: (string | number[])[],
-      provider: string,
-      fromContentManager: boolean
-    ): TransactionObject<void>;
-
-    acceptRequest(requestReference: string | number[]): TransactionObject<void>;
 
     topUpRequest(
       fileReference: (string | number[])[],
-      provider: string,
-      fromContentManager: boolean
+      provider: string
     ): TransactionObject<void>;
 
     stopRequestDuring(
       fileReference: (string | number[])[],
-      provider: string,
-      fromContentManager: boolean
+      provider: string
     ): TransactionObject<void>;
 
     withdrawEarnings(
@@ -85,9 +77,7 @@ export class PinningManager extends Contract {
     ): TransactionObject<void>;
 
     getRequestReference(
-      bidder: string,
-      fileReference: (string | number[])[],
-      fromContentManager: boolean
+      fileReference: (string | number[])[]
     ): TransactionObject<string>;
   };
   events: {
@@ -104,6 +94,12 @@ export class PinningManager extends Contract {
       0: string;
       1: string;
     }>;
+    MessageEmitted: ContractEvent<{
+      storer: string;
+      message: string[];
+      0: string;
+      1: string[];
+    }>;
     PriceSet: ContractEvent<{
       storer: string;
       period: string;
@@ -112,21 +108,20 @@ export class PinningManager extends Contract {
       1: string;
       2: string;
     }>;
-    RequestAccepted: ContractEvent<string>;
     RequestMade: ContractEvent<{
+      requestReference: string;
       fileReference: string[];
       requester: string;
       provider: string;
       size: string;
       period: string;
-      usesContentManager: boolean;
       deposited: string;
-      0: string[];
-      1: string;
+      0: string;
+      1: string[];
       2: string;
       3: string;
       4: string;
-      5: boolean;
+      5: string;
       6: string;
     }>;
     RequestStopped: ContractEvent<string>;
