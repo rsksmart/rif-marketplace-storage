@@ -1,91 +1,69 @@
+/* eslint-disable */
 const { expect } = require('chai');
 const {
-    BN,
-    balance,
-    time,
-    expectEvent,
-    expectRevert
-  } = require("openzeppelin-test-helpers");
+  BN,
+  balance,
+  time,
+  expectEvent,
+  expectRevert,
+} = require('@openzeppelin/test-helpers');
 
 const PinningManager = artifacts.require('PinningManager');
 
-contract('PinningManager', function([PinningProvider, user, randomPerson]) {
-  beforeEach(async function() {
-      this.pinningManager = await PinningManager.new({from: randomPerson})
-  })
+contract('PinningManager', ([PinningProvider, user, randomPerson]) => {
+  beforeEach(async function () {
+    this.pinningManager = await PinningManager.new({ from: randomPerson });
+  });
 
-  describe(`Create pinning offer`, function() {
-    context('one price/duration point', function() {
-      
-    })
-    context('two price/duration points', function() {
-
-    })    
-    context('zero price/duration points', function() {
+  describe('Create pinning offer', () => {
+    context('one price/duration point', () => {});
+    context('two price/duration points', () => {});
+    context('zero price/duration points', () => {
       // revert
-    })
-    context('more than 256 price/duration points', function() {
+    });
+    context('more than 256 price/duration points', () => {
       // revert
-    })
+    });
+  });
 
-  })
+  describe('Update pinning offer (capacity)', () => {});
 
-  describe('Update pinning offer (capacity)', function() {
-    
-  })
+  describe('Update pinning offer (price)', () => {});
 
-  describe('Update pinning offer (price)', function() {
-
-  })
-
-  describe('Accept pinning offer', function() {
-    context('non-existant', function() {
-
-    })
-    context('expired', function() {
-      context('final payout done', function() {
-
-      })
-      context('final payout not done', function() {
+  describe('Accept pinning offer', () => {
+    context('non-existant', () => {});
+    context('expired', () => {
+      context('final payout done', () => {});
+      context('final payout not done', () => {
         // do final payment
-      })
-    })
-    context('non-expired', function() {
+      });
+    });
+    context('non-expired', () => {
       // revert
-    })
-  })
+    });
+  });
 
-  describe('Prolong contract', function() {
-    context('non-expired', function() {
-
-    })
-    context('non-existant', function() {
+  describe('Prolong contract', () => {
+    context('non-expired', () => {});
+    context('non-existant', () => {
       // revert
-    })
-    context('expired', function() {
+    });
+    context('expired', () => {
       // revert
-    })
-    context('offer expired', function() {
+    });
+    context('offer expired', () => {
       // revert
-    })
-  })
+    });
+  });
 
-  describe('Request payment', function() {
-    context('expired', function() {
-
-    })
-    context('not expired', function() {
-      context('linear function', function() {
-        context('half of price duration', function(){
-
-        })
-        context('at price duration', function() {
-
-        })
-        context('two times price duration', function() {
-          
-        })
-      })
-    })
-  })
-})
+  describe('Request payment', () => {
+    context('expired', () => {});
+    context('not expired', () => {
+      context('linear function', () => {
+        context('half of price duration', () => {});
+        context('at price duration', () => {});
+        context('two times price duration', () => {});
+      });
+    });
+  });
+});
