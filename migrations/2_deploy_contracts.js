@@ -1,5 +1,5 @@
-let PinningManager = artifacts.require("PinningManager");
+let StorageManager = artifacts.require("StorageManager");
 
 module.exports = function(deployer) {
-    deployer.deploy(PinningManager)
+    deployer.deploy(StorageManager)
 }
