@@ -8,11 +8,11 @@ const {
   expectRevert,
 } = require('@openzeppelin/test-helpers');
 
-const PinningManager = artifacts.require('PinningManager');
+const StorageManager = artifacts.require('StorageManager');
 
-contract('PinningManager', ([PinningProvider, user, randomPerson]) => {
+contract('StorageManager', ([PinningProvider, user, randomPerson]) => {
   beforeEach(async function () {
-    this.pinningManager = await PinningManager.new({ from: randomPerson });
+    this.storageManager = await StorageManager.new({ from: randomPerson });
   });
 
   describe('Create pinning offer', () => {

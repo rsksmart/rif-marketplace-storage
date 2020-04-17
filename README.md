@@ -4,11 +4,11 @@
 npm i @rsksmart/rif-marketplace-storage-pinning
 ```
 
-## PinningManager contract
+## StorageManager contract
 
 ### Message
-The `StorageProvider` can emit an arbitrary message in the function calls `setStorageOffer` and `emitMessage`. 
-The message is is initially intended to allow the `StorageProvider` to communicate his `nodeID`, but may be used for other purposes later.
+The `Provider` can emit an arbitrary message in the function calls `setOffer` and `emitMessage`. 
+The message is is initially intended to allow the `Provider` to communicate his `nodeID`, but may be used for other purposes later.
 
 The client should be instructed to enforce the following semantics:
 - If `message` starts with `0x01`, then the following bits contain an arbitrary length `nodeID`.
@@ -22,6 +22,7 @@ The client should be instructed to enforce the following semantics:
     - **Offer** - Offer created by Provider that announces availability of his storage space.
       - *Billing Periods* - Specifies periods how often is payment required (e.g. every month, every 2 months...).
       - *Billing Prices* - Specifies prices per byte for each Billing Period, resulting in period-price tuple.
+      - *Billing Plan* - Is a period-price tuple which defines Billing Price per Billing Period.
       - *Maximum Duration* - Duration which Consumer can maximally rent the storage space for. 
       - *Total Capacity* - Total capacity in bytes that Provider is offering.
       - *Available Capacity* - Capacity in bytes in given time that is left free for Consumers to use.
