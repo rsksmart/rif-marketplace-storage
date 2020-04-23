@@ -1,0 +1,23 @@
+pragma solidity 0.6.2;
+
+import "./StorageManager.sol";
+
+contract TestStorageManager is StorageManager {
+    uint time;
+
+    function _time() internal view override returns (uint) {
+        if(time == 0){
+            return now;
+        }
+
+        return time;
+    }
+
+    function incrementTime(uint increment) public {
+        time = time + increment;
+    }
+
+    function setTime(uint newTime) public {
+        time = newTime;
+    }
+}

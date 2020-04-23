@@ -44,8 +44,6 @@ contract StorageManager {
     // offerRegistry stores the open or closed Offer for provider.
     mapping(address => Offer) public offerRegistry;
 
-    event Log(uint number);
-
     event AvailableCapacitySet(address indexed provider, uint128 capacity);
     event BillingPlanSet(address indexed provider, uint64 period, uint64 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
@@ -191,7 +189,7 @@ contract StorageManager {
         agreement.size = size;
         agreement.billingPrice = billingPrice;
         agreement.billingPeriod = billingPeriod;
-        agreement.lastPayoutDate = uint128(now);
+        agreement.lastPayoutDate = uint128(_time());
 
         offer.availableCapacity = uint128(offer.availableCapacity.sub(size));
 
@@ -305,7 +303,7 @@ contract StorageManager {
 
                 emit AgreementStopped(agreementReferences[i]);
             } else {// Provider called this during active agreement which has still funds to run
-                agreement.lastPayoutDate = uint128(now);
+                agreement.lastPayoutDate = uint128(_time());
             }
 
             emit AgreementFundsPayout(agreementReferences[i], spentFunds);
@@ -320,7 +318,7 @@ contract StorageManager {
     function _calculateSpentFunds(Agreement memory agreement) internal view returns (uint256) {
         // TODO: Can be most probably smaller then uint256
         uint256 totalPeriodPrice = agreement.size * agreement.billingPrice;
-        uint256 periodsSinceLastPayout = (now - agreement.lastPayoutDate) / agreement.billingPeriod;
+        uint256 periodsSinceLastPayout = (_time() - agreement.lastPayoutDate) / agreement.billingPeriod;
         uint256 spentFunds = periodsSinceLastPayout * totalPeriodPrice;
 
         // Round the funds based on the available funds
@@ -346,5 +344,12 @@ contract StorageManager {
 
     function _emitMessage(bytes32[] memory message) internal {
         emit MessageEmitted(msg.sender, message);
+    }
+
+    /**
+    @dev Helper function for testing timing overloaded in testing contract
+    */
+    function _time() internal view virtual returns (uint) {
+        return now;
     }
 }

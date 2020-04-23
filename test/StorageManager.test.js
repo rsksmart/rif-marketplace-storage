@@ -3,12 +3,8 @@ const {
   expectEvent,
   expectRevert
 } = require('@openzeppelin/test-helpers')
-const { asciiToHex, padRight, soliditySha3 } = require('web3-utils')
-const StorageManager = artifacts.require('StorageManager')
-
-function sleep (ms, ...args) {
-  return new Promise(resolve => setTimeout(() => resolve(...args), ms))
-}
+const { asciiToHex, padRight } = require('web3-utils')
+const StorageManager = artifacts.require('TestStorageManager')
 
 function getAgreementReference (receipt) {
   const newAgreementEvent = receipt.logs.find(e => e.event === 'NewAgreement')
@@ -21,6 +17,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
   beforeEach(async function () {
     storageManager = await StorageManager.new({ from: randomPerson })
+    await storageManager.setTime(100)
   })
 
   describe('setOffer', () => {
@@ -104,8 +101,12 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
     it('should recreate expired Agreement ', async () => {
       await storageManager.setOffer(1000, [1, 2], [10, 20], [], { from: Provider })
-      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 1500 }))
-      await sleep(1000)
+      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, {
+        from: Consumer,
+        value: 1500
+      }))
+
+      await storageManager.incrementTime(1)
 
       await storageManager.payoutFunds([agreementReference], { from: Provider })
       const receipt = await storageManager.newAgreement(cid, Provider, 100, 2, { from: Consumer, value: 2000 })
@@ -154,8 +155,11 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
     it('should revert when agreement is expired', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
-      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 1500 }))
-      await sleep(1000)
+      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, {
+        from: Consumer,
+        value: 1500
+      }))
+      await storageManager.incrementTime(1)
 
       await storageManager.payoutFunds([agreementReference], { from: Provider })
       await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
@@ -198,7 +202,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await storageManager.newAgreement(cid, Provider, 100, 10, { from: Consumer, value: 3000 })
 
       await expectRevert(storageManager.withdrawFunds(cid, Provider, 1000, { from: randomPerson }),
-        "StorageManager: Agreement for this Offer doesn't exist")
+        'StorageManager: Agreement for this Offer doesn\'t exist')
     })
 
     it('should revert when amount exceeds current period', async () => {
@@ -216,7 +220,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should revert when amount exceeds non-payed out periods', async () => {
       await storageManager.setOffer(1000, [1, 10], [10, 80], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 5000 })
-      await sleep(1000)
+      await storageManager.incrementTime(1)
 
       await expectRevert(storageManager.withdrawFunds(cid, Provider, 3001, { from: Consumer }),
         'StorageManager: Amount is too big')
@@ -225,7 +229,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should withdraw all funds except reserved funds for past periods and current period', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 5000 })
-      await sleep(1000)
+      await storageManager.incrementTime(1)
 
       const receipt = await storageManager.withdrawFunds(cid, Provider, 0, { from: Consumer })
       expectEvent(receipt, 'AgreementFundsWithdrawn', {
@@ -236,7 +240,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should withdraw zero funds because everything is reserved', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 5000 })
-      await sleep(4000)
+      await storageManager.incrementTime(4)
 
       const receipt = await storageManager.withdrawFunds(cid, Provider, 0, { from: Consumer })
       expectEvent(receipt, 'AgreementFundsWithdrawn', {
@@ -258,8 +262,11 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
     it('should withdraw all remaining funds when the agreement is expired', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
-      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 2500 }))
-      await sleep(2100)
+      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, {
+        from: Consumer,
+        value: 2500
+      }))
+      await storageManager.incrementTime(2)
 
       const payoutReceipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
       expectEvent(payoutReceipt, 'AgreementFundsPayout', {
@@ -280,8 +287,10 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   describe('payoutFunds', function () {
     it('should payout funds for valid inputs', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
-      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 5000 }))
-      await sleep(1900)
+      const agreementReference = getAgreementReference(
+        await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 5000 })
+      )
+      await storageManager.incrementTime(2)
 
       const receipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
       expectEvent(receipt, 'AgreementFundsPayout', {
@@ -291,8 +300,10 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
     it('should payout funds and stop agreement when run out of funds', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
-      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 2500 }))
-      await sleep(2100)
+      const agreementReference = getAgreementReference(
+        await storageManager.newAgreement(cid, Provider, 100, 1, { from: Consumer, value: 2500 })
+      )
+      await storageManager.incrementTime(2)
 
       const receipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
       expectEvent(receipt, 'AgreementFundsPayout', {
