@@ -20,4 +20,8 @@ contract TestStorageManager is StorageManager {
     function setTime(uint newTime) public {
         time = newTime;
     }
+
+    function getOfferCapacity(address provider) public view returns (uint) {
+        return offerRegistry[provider].availableCapacity;
+    }
 }

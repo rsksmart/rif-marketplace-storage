@@ -166,8 +166,9 @@ contract StorageManager {
     @param provider the provider from which is proposed to take a Offer.
     @param size the size of the to-be-pinned file in bytes (rounded up).
     @param billingPeriod the chosen period for billing.
+    @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
-    function newAgreement(bytes32[] memory dataReference, address payable provider, uint128 size, uint64 billingPeriod) public payable {
+    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable {
         require(billingPeriod != 0, "StorageManager: billing period of 0 not allowed");
         require(size > 0, "StorageManager: size has to be bigger then 0");
 
@@ -191,7 +192,15 @@ contract StorageManager {
         agreement.billingPeriod = billingPeriod;
         agreement.lastPayoutDate = uint128(_time());
 
-        offer.availableCapacity = uint128(offer.availableCapacity.sub(size));
+        // Allow to enforce payout funds and close of agreements that are already expired,
+        // which should free needed capacity, if the capacity is becoming depleted.
+        if(agreementsReferencesToBePayedOut.length > 0) {
+            _payoutFunds(agreementsReferencesToBePayedOut, payable(provider));
+        }
+
+        offer = offerRegistry[provider];
+        // Will revert when the size should be smaller then zero
+        offer.availableCapacity = uint128(offer.availableCapacity.sub(size, "StorageManager: Insufficient capacity"));
 
         emit NewAgreement(
             agreementReference,
@@ -274,11 +283,15 @@ contract StorageManager {
     @param agreementReferences reference to one or more Agreement
     */
     function payoutFunds(bytes32[] memory agreementReferences) public {
-        Offer storage offer = offerRegistry[msg.sender];
+        _payoutFunds(agreementReferences, msg.sender);
+    }
+
+    function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal {
+        Offer storage offer = offerRegistry[provider];
         require(offer.availableCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         uint256 toTransfer;
         for (uint8 i = 0; i < agreementReferences.length; i++) {
-            Agreement storage agreement = offer.agreementRegistry[agreementReferences[i]];
+        Agreement storage agreement = offer.agreementRegistry[agreementReferences[i]];
             require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
 
             // TODO: [Q] Should we disallow to payout from inactive agreement? Can it cause some deadlock?
@@ -308,7 +321,7 @@ contract StorageManager {
 
             emit AgreementFundsPayout(agreementReferences[i], spentFunds);
         }
-        msg.sender.transfer(toTransfer);
+        provider.transfer(toTransfer);
     }
 
     function getAgreementReference(bytes32[] memory dataReference, address author) public view returns (bytes32) {
