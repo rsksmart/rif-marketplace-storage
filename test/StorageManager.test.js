@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
 const {
   expectEvent,
-  expectRevert
+  expectRevert,
+  balance
 } = require('@openzeppelin/test-helpers')
 const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
@@ -64,7 +65,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       const receipt = await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 })
       expectEvent(receipt, 'NewAgreement', {
         provider: Provider,
-        agreementAuthor: Consumer,
+        agreementCreator: Consumer,
         size: '100',
         billingPeriod: '10',
         billingPrice: '10',
@@ -72,7 +73,14 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
+    it('should revert for non-existing Offer', async () => {
+      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 }),
+        'StorageManager: Offer for this Provider doesn\'t exist')
+    })
+
     it('should revert for no billing period or size', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+
       await expectRevert(storageManager.newAgreement(cid, Provider, 0, 10, [], { from: Consumer, value: 2000 }),
         'StorageManager: size has to be bigger then 0')
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 0, [], { from: Consumer, value: 2000 }),
@@ -85,11 +93,6 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 100, [], { from: Consumer, value: 2000 }),
         'StorageManager: Agreement already active')
-    })
-
-    it('should revert for non existing Offer', async () => {
-      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 }),
-        'StorageManager: Offer for this provider doesn\'t exist')
     })
 
     it('should revert for non existing Billing plan', async () => {
@@ -117,7 +120,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       const receipt = await storageManager.newAgreement(cid, Provider, 100, 2, [], { from: Consumer, value: 2000 })
       expectEvent(receipt, 'NewAgreement', {
         provider: Provider,
-        agreementAuthor: Consumer,
+        agreementCreator: Consumer,
         size: '100',
         billingPeriod: '2',
         billingPrice: '20',
@@ -149,7 +152,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
       expectEvent(receipt, 'NewAgreement', {
         provider: Provider,
-        agreementAuthor: Consumer,
+        agreementCreator: Consumer,
         size: '200',
         billingPeriod: '10',
         billingPrice: '10',
@@ -283,15 +286,13 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
-    it('should withdraw zero funds because everything is reserved', async () => {
+    it('should revert because zero funds would be withdrawn as everything is reserved', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, [], { from: Consumer, value: 5000 })
       await storageManager.incrementTime(4)
 
-      const receipt = await storageManager.withdrawFunds(cid, Provider, 0, { from: Consumer })
-      expectEvent(receipt, 'AgreementFundsWithdrawn', {
-        amount: '0'
-      })
+      await expectRevert(storageManager.withdrawFunds(cid, Provider, 0, { from: Consumer }),
+        'StorageManager: Nothing to withdraw')
     })
 
     it('should revert when offer does not exists', async () => {
@@ -361,7 +362,6 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       expectEvent(receipt, 'AgreementStopped', {
         agreementReference
       })
-
       await expectCapacity(1000)
     })
   })
