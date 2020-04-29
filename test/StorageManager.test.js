@@ -49,6 +49,11 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       expectEvent(receipt, 'MessageEmitted')
     })
 
+    it('should revert for too big billing plan', async () => {
+      await expectRevert(storageManager.setOffer(1000, [1, 2, 15552101], [1, 2, 3], [], { from: Provider }),
+        'StorageManager: Billing period exceed max. length')
+    })
+
     it('should revert for no billing plan', async () => {
       await expectRevert(storageManager.setOffer(1000, [], [], [], { from: Provider }), 'StorageManager: Offer needs some billing plans')
     })

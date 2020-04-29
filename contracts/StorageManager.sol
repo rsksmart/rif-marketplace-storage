@@ -11,6 +11,7 @@ contract StorageManager {
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SafeMath for uint64;
+    uint64 constant private MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
 
     modifier existingOffer(address provider){
         Offer storage offer = offerRegistry[provider];
@@ -369,6 +370,7 @@ contract StorageManager {
     @dev Only non-zero prices periods are considered to be active. To remove a period, set it's price to 0
     */
     function _setBillingPlan(Offer storage offer, uint64 period, uint64 price) internal {
+        require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         offer.billingPlans[period] = price;
         emit BillingPlanSet(msg.sender, period, price);
     }
