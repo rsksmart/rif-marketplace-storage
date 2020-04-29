@@ -36,11 +36,14 @@ The client should be instructed to enforce the following semantics:
       - *IPNS Source* - [That is the future babe.](https://gph.is/1FD4aQ0)
       - *RNS Source* - [That is also the future babe.](https://gph.is/1FD4aQ0)
       - *Swarm Feeds Source* - [That is also the future babe.](https://gph.is/1FD4aQ0)
-    - **Agreement** - Consumer creates Agreement for a specific Provider's Offer, specifying and the corresponding Data Source
+    - **Agreement** - Consumer creates Agreement for a specific Provider's Offer, specifying, and the corresponding Data Source
       - *Data Reference* - Pointer to Data Source
       - *Agreement Termination* - Consumer can decide to terminate the agreement, which will take effect after finishing of current billing period.
+      - *Available Funds* - Amount of funds deposited for the Agreement, ready to be spend for the Agreement.
+      - *Spent Funds* - Amount of funds already spend as a payment for the Storage service to Provider. Funds are awaiting Provider's request to payout.
       - *Deposit Funds* - In order for an Agreement to be active, it needs to have available funds for each Billing Period renewal. Consumer can therefore deposit funds.
       - *Withdraw Funds* - Customer can withdraw deposited funds, which have not be used for Billing Period renewal.
       - *Payout Funds* - Upon finishing of a Billing Period, the Provider can request the funds for the finished periods to be transferred to him. 
       - *Active Agreement* - Active Agreement is that one that had sufficient funds to pay for the current Billing Period. Provider stores and provide the files specified by Data Reference. When it runs out of funds it will become "Inactive Agreement".
-      - *Inactive Agreement* - Inactive Agreement is that one that ran out of funds and therefore the Provider is not required to store and provide the files defined in Data Reference.
+      - *Inactive Agreement* - Inactive Agreement is that one that either expired or was terminated by either party, therefore the Provider is not required to store and provide the files defined in Data Reference.
+      - *Expired Agreement* - Expired Agreement is that one that "naturally" ran out of funds and becomes Inactive Agreement.

@@ -38,8 +38,9 @@
     "@openzeppelin/test-helpers": "^0.5.5",
     "chai": "^4.2.0",
     "tasegir": "^1.7.1",
-    "truffle": "^5.1.19",
-    "truffle-security": "^1.6.2"
+    "truffle": "^5.1.22",
+    "truffle-security": "^1.6.2",
+    "web3-utils": "^1.2.6"
   },
   "engines": {
     "node": ">=10.0.0",
