@@ -22,15 +22,15 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     await storageManager.setTime(100)
   })
 
-  async function expectCapacity (capacity) {
-    expect((await storageManager.getOfferCapacity(Provider)).toNumber()).to.eql(capacity)
+  async function expectUtilizedCapacity (capacity) {
+    expect((await storageManager.getOfferUtilizedCapacity(Provider)).toNumber()).to.eql(capacity)
   }
 
   describe('setOffer', () => {
     it('should create new Offer for valid inputs', async () => {
       const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
       const receipt = await storageManager.setOffer(1000, [10, 100], [10, 80], msg, { from: Provider })
-      expectEvent(receipt, 'AvailableCapacitySet', {
+      expectEvent(receipt, 'TotalCapacitySet', {
         provider: Provider,
         capacity: '1000'
       })
@@ -58,6 +58,22 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     })
   })
 
+  describe('terminateOffer', function () {
+    it('should terminate existing offer', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+      const receipt = await storageManager.terminateOffer({ from: Provider })
+      expectEvent(receipt, 'TotalCapacitySet', {
+        provider: Provider,
+        capacity: '0'
+      })
+    })
+
+    it('should revert for nonexisting offer', async () => {
+      await expectRevert(storageManager.terminateOffer({ from: Provider }),
+        'StorageManager: Offer for this Provider doesn\'t exist')
+    })
+  })
+
   describe('newAgreement', () => {
     it('should create new Agreement for valid inputs', async () => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
@@ -71,9 +87,44 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         billingPrice: '10',
         availableFunds: '2000'
       })
+      await expectUtilizedCapacity(100)
     })
 
-    it('should revert for non-existing Offer', async () => {
+    it('should be possible to create new agreement for reactivated Offer', async () => {
+      let receipt
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+      receipt = await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 })
+      expectEvent(receipt, 'NewAgreement', {
+        provider: Provider,
+        agreementCreator: Consumer,
+        size: '100',
+        billingPeriod: '10',
+        billingPrice: '10',
+        availableFunds: '2000'
+      })
+      await expectUtilizedCapacity(100)
+
+      await storageManager.terminateOffer({ from: Provider })
+      await expectUtilizedCapacity(100)
+
+      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 }),
+        'StorageManager: Offer for this Provider doesn\'t exist')
+
+      await storageManager.setTotalCapacity(1500, { from: Provider })
+      await expectUtilizedCapacity(100)
+      receipt = await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: randomPerson, value: 2000 })
+      expectEvent(receipt, 'NewAgreement', {
+        provider: Provider,
+        agreementCreator: randomPerson,
+        size: '100',
+        billingPeriod: '10',
+        billingPrice: '10',
+        availableFunds: '2000'
+      })
+      await expectUtilizedCapacity(200)
+    })
+
+    it('should revert for non-existing/non-active Offer', async () => {
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 }),
         'StorageManager: Offer for this Provider doesn\'t exist')
     })
@@ -82,9 +133,9 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
 
       await expectRevert(storageManager.newAgreement(cid, Provider, 0, 10, [], { from: Consumer, value: 2000 }),
-        'StorageManager: size has to be bigger then 0')
+        'StorageManager: Size has to be bigger then 0')
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 0, [], { from: Consumer, value: 2000 }),
-        'StorageManager: billing period of 0 not allowed')
+        'StorageManager: Billing period of 0 not allowed')
     })
 
     it('should revert when agreement already exists', async () => {
@@ -95,16 +146,31 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Agreement already active')
     })
 
+    it('should revert when Offer does not have available capacity', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+
+      // Agreement that uses whole capacity of the offer
+      await storageManager.newAgreement(cid, Provider, 900, 10, [], {
+        from: randomPerson,
+        value: 10000
+      })
+      await expectUtilizedCapacity(900)
+
+      // Revert because there is not enough capacity
+      await expectRevert(storageManager.newAgreement(cid, Provider, 200, 10, [], { from: Consumer, value: 2000 }),
+        'StorageManager: Insufficient Offer\'s capacity')
+    })
+
     it('should revert for non existing Billing plan', async () => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 20, [], { from: Consumer, value: 2000 }),
-        'StorageManager: billing price doesn\'t exist for Offer')
+        'StorageManager: Billing price doesn\'t exist for Offer')
     })
 
     it('should revert when not enough value is deposited', async () => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
       await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 10 }),
-        'StorageManager: funds deposited has to be for at least one billing period')
+        'StorageManager: Funds deposited has to be for at least one billing period')
     })
 
     it('should recreate expired Agreement ', async () => {
@@ -137,11 +203,11 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         value: 10000
       }))
 
-      await expectCapacity(100)
+      await expectUtilizedCapacity(900)
 
       // Revert because there is not enough capacity
       await expectRevert(storageManager.newAgreement(cid, Provider, 200, 10, [], { from: Consumer, value: 2000 }),
-        'StorageManager: Insufficient capacity')
+        'StorageManager: Insufficient Offer\'s capacity')
 
       // Lets fast forward when the first Agreement run out of founds and hence is awaiting for termination
       await storageManager.incrementTime(15)
@@ -166,7 +232,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         agreementReference
       })
 
-      await expectCapacity(800)
+      await expectUtilizedCapacity(200)
     })
   })
 
@@ -199,7 +265,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await storageManager.setBillingPlans([10, 100], [0, 80], { from: Provider })
 
       await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
-        'StorageManager: price not available anymore')
+        'StorageManager: Price not available anymore')
     })
 
     it('should revert when agreement is expired', async () => {
@@ -297,7 +363,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
     it('should revert when offer does not exists', async () => {
       await expectRevert(storageManager.withdrawFunds(cid, Provider, 100, { from: Consumer }),
-        'StorageManager: Offer for this Provider doesn\'t exist')
+        'StorageManager: Agreement for this Offer doesn\'t exist')
     })
 
     it('should revert when agreement does not exists', async () => {
@@ -351,7 +417,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         await storageManager.newAgreement(cid, Provider, 100, 1, [], { from: Consumer, value: 2500 })
       )
 
-      await expectCapacity(900)
+      await expectUtilizedCapacity(100)
       await storageManager.incrementTime(2)
 
       const receipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
@@ -362,7 +428,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       expectEvent(receipt, 'AgreementStopped', {
         agreementReference
       })
-      await expectCapacity(1000)
+      await expectUtilizedCapacity(0)
     })
   })
 })

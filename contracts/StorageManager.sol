@@ -12,16 +12,14 @@ contract StorageManager {
     using SafeMath for uint128;
     using SafeMath for uint64;
 
-    modifier existingOffer(address provider){
+    modifier activeOffer(address provider){
         Offer storage offer = offerRegistry[provider];
-        require(offer.availableCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
+        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         _;
     }
 
     modifier existingAgreement(bytes32[] memory dataReference, address provider){
         Offer storage offer = offerRegistry[provider];
-        require(offer.availableCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
-
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
         require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
@@ -30,12 +28,14 @@ contract StorageManager {
 
     /*
     Offer represents:
-     - availableCapacity: the amount of bytes currently offered. When the capacity is zero, already started Agreement can't be prolonged or re-started ==> it is terminated
+     - utilizedCapacity: how much is capacity is utilized in Offer.
+     - totalCapacity: total amount of bytes offered.
      - billingPlans: maps a billing period to a billing price. When a price is 0, the period is not offered.
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
-        uint128 availableCapacity;
+        uint128 utilizedCapacity;
+        uint128 totalCapacity;
         mapping(uint64 => uint64) billingPlans;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
@@ -59,7 +59,7 @@ contract StorageManager {
     // offerRegistry stores the open or closed Offer for provider.
     mapping(address => Offer) public offerRegistry;
 
-    event AvailableCapacitySet(address indexed provider, uint128 capacity);
+    event TotalCapacitySet(address indexed provider, uint128 capacity);
     event BillingPlanSet(address indexed provider, uint64 period, uint64 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
 
@@ -80,7 +80,7 @@ contract StorageManager {
 
     /**
     >> FOR PROVIDER
-    @notice set the availableCapacity and billingPlans of a Offer.
+    @notice set the totalCapacity and billingPlans of a Offer.
     @dev
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
     - Exercise caution with assigning additional capacity when capacity is already taken.
@@ -101,7 +101,7 @@ contract StorageManager {
         bytes32[] memory message
     ) public {
         Offer storage offer = offerRegistry[msg.sender];
-        _setAvailableCapacity(offer, capacity);
+        setTotalCapacity(capacity);
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
         require(billingPeriods.length == billingPrices.length, "StorageManager: Billing plans array length has to equal to billing prices");
         for (uint8 i = 0; i < billingPeriods.length; i++) {
@@ -114,38 +114,25 @@ contract StorageManager {
 
     /**
     >> FOR PROVIDER
-    @notice increases the capacity of a Offer.
-    @dev exercise caution with assigning additional capacity when capacity is already taken.
-    It may happen that when a lot of capacity is available and we release already-taken capacity, capacity overflows.
-    We explicitly allow this overflow to happen on the smart-contract level,
-    because the worst thing that can happen is that the provider now has less storage available than planned (in which case he can top it up himself).
-    However, take care of this in the client. REF_CAPACITY
-    @param increase the increase in capacity (in bytes).
+    @notice sets total capacity of Offer.
+    @param capacity the new capacity
     */
-    function increaseAvailableCapacity(uint128 increase) public existingOffer(msg.sender) {
+    function setTotalCapacity(uint128 capacity) public {
+        require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
-        _setAvailableCapacity(offer, uint128(offer.availableCapacity.add(increase)));
+        offer.totalCapacity = capacity;
+        emit TotalCapacitySet(msg.sender, capacity);
     }
 
     /**
     >> FOR PROVIDER
-    @notice decreases the capacity of a Offer.
-    @dev use function stopStorage if you want to set the capacity to 0 (and thereby stop the Offer)
-    @param decrease the decrease in capacity (in bytes).
+    @notice stops the Offer. It sets
+    @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
-    function decreaseAvailableCapacity(uint128 decrease) public existingOffer(msg.sender) {
+    function terminateOffer() public activeOffer(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
-        _setAvailableCapacity(offer, uint128(offer.availableCapacity.sub(decrease)));
-    }
-
-    /**
-    >> FOR PROVIDER
-    @notice stops the Offer.
-    @dev when capacity is set to 0, no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
-   */
-    function terminateOffer() public existingOffer(msg.sender) {
-        Offer storage offer = offerRegistry[msg.sender];
-        _setAvailableCapacity(offer, 0);
+        offer.totalCapacity = 0;
+        emit TotalCapacitySet(msg.sender, 0);
     }
 
     /**
@@ -157,7 +144,7 @@ contract StorageManager {
     @param billingPeriods the offered periods. Length must be equal to billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
-    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public existingOffer(msg.sender) {
+    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public activeOffer(msg.sender) {
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
         require(billingPeriods.length == billingPrices.length, "StorageManager: Billing plans array length has to equal to billing prices");
         Offer storage offer = offerRegistry[msg.sender];
@@ -187,23 +174,22 @@ contract StorageManager {
     @param billingPeriod the chosen period for billing.
     @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
-    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable existingOffer(provider) {
-        require(billingPeriod != 0, "StorageManager: billing period of 0 not allowed");
-        require(size > 0, "StorageManager: size has to be bigger then 0");
+    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable activeOffer(provider) {
+        require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
+        require(size > 0, "StorageManager: Size has to be bigger then 0");
 
         Offer storage offer = offerRegistry[provider];
-
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
         require(agreement.lastPayoutDate == 0, "StorageManager: Agreement already active");
 
         uint64 billingPrice = offer.billingPlans[billingPeriod];
-        require(billingPrice != 0, "StorageManager: billing price doesn't exist for Offer");
+        require(billingPrice != 0, "StorageManager: Billing price doesn't exist for Offer");
 
         // Adding to previous availableFunds as the agreement could have been expired
         // and Consumer is reactivating it, so in order not to loose any previous funds.
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
-        require(agreement.availableFunds >= size * billingPrice, "StorageManager: funds deposited has to be for at least one billing period");
+        require(agreement.availableFunds >= size * billingPrice, "StorageManager: Funds deposited has to be for at least one billing period");
 
         agreement.size = size;
         agreement.billingPrice = billingPrice;
@@ -220,8 +206,8 @@ contract StorageManager {
         }
 
         offer = offerRegistry[provider];
-        // Will revert when the size should be smaller then zero
-        offer.availableCapacity = uint128(offer.availableCapacity.sub(size, "StorageManager: Insufficient capacity"));
+        offer.utilizedCapacity = uint128(offer.utilizedCapacity.add(size));
+        require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         emit NewAgreement(
             agreementReference,
@@ -243,13 +229,13 @@ contract StorageManager {
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(bytes32[] memory dataReference, address provider) public payable existingAgreement(dataReference, provider) {
+    function depositFunds(bytes32[] memory dataReference, address provider) public payable activeOffer(provider) existingAgreement(dataReference, provider) {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Offer storage offer = offerRegistry[provider];
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
 
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
-        require(offer.billingPlans[agreement.billingPeriod] != 0, "StorageManager: price not available anymore");
+        require(offer.billingPlans[agreement.billingPeriod] != 0, "StorageManager: Price not available anymore");
 
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
         emit AgreementFundsDeposited(agreementReference, msg.value);
@@ -286,8 +272,8 @@ contract StorageManager {
         require(amount <= maxWithdrawableFunds, "StorageManager: Amount is too big");
         agreement.availableFunds = agreement.availableFunds.sub(amount);
 
-        require (amount > 0, "StorageManager: Nothing to withdraw");
-        (bool success, ) = msg.sender.call.value(amount)("");
+        require(amount > 0, "StorageManager: Nothing to withdraw");
+        (bool success,) = msg.sender.call.value(amount)("");
         require(success, "Transfer failed.");
 
         emit AgreementFundsWithdrawn(agreementReference, amount);
@@ -304,14 +290,14 @@ contract StorageManager {
         _payoutFunds(agreementReferences, msg.sender);
     }
 
-    function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal existingOffer(provider) {
+    function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal {
         Offer storage offer = offerRegistry[provider];
         uint256 toTransfer = 0;
         for (uint8 i = 0; i < agreementReferences.length; i++) {
             Agreement storage agreement = offer.agreementRegistry[agreementReferences[i]];
             require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
-            require(agreement.lastPayoutDate != 0, "StorageManager: Agreement is inactive");
             // Was already payed out and terminated
+            require(agreement.lastPayoutDate != 0, "StorageManager: Agreement is inactive");
 
             uint256 spentFunds = _calculateSpentFunds(agreement);
             agreement.availableFunds = agreement.availableFunds.sub(spentFunds);
@@ -322,13 +308,8 @@ contract StorageManager {
                 // Agreement becomes inactive
                 agreement.lastPayoutDate = 0;
 
-                // Check if Offer is still active
-                if (offer.availableCapacity != 0) {
-                    //ALLOW_OVERFLOW reasoning: see: REF_CAPACITY
-                    // add back capacity
-                    offer.availableCapacity = offer.availableCapacity + agreement.size;
-                }
-
+                // Add back capacity
+                offer.utilizedCapacity = offer.utilizedCapacity - agreement.size;
                 emit AgreementStopped(agreementReferences[i]);
             } else {// Provider called this during active agreement which has still funds to run
                 agreement.lastPayoutDate = uint128(_time());
@@ -337,8 +318,8 @@ contract StorageManager {
             emit AgreementFundsPayout(agreementReferences[i], spentFunds);
         }
 
-        require (toTransfer > 0, "StorageManager: Nothing to withdraw");
-        (bool success, ) = provider.call.value(toTransfer)("");
+        require(toTransfer > 0, "StorageManager: Nothing to withdraw");
+        (bool success,) = provider.call.value(toTransfer)("");
         require(success, "StorageManager: Transfer failed.");
     }
 
@@ -358,11 +339,6 @@ contract StorageManager {
         }
 
         return spentFunds;
-    }
-
-    function _setAvailableCapacity(Offer storage offer, uint128 capacity) internal {
-        offer.availableCapacity = capacity;
-        emit AvailableCapacitySet(msg.sender, capacity);
     }
 
     /*
