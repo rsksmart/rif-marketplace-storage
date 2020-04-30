@@ -17,6 +17,7 @@
     "email": "<rinke@iovlabs.org>"
   },
   "files": [
+    "build/contracts",
     "types"
   ],
   "directories": {
@@ -30,7 +31,8 @@
   },
   "scripts": {
     "test": "truffle test",
-    "lint": "tasegir lint"
+    "lint": "tasegir lint",
+    "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/PinningManager.json && typechain --target=web3-v2 build/contracts/PinningManager.json && typechain --target=truffle build/contracts/PinningManager.json && typechain --target=ethers build/contracts/PinningManager.json"
   },
   "dependencies": {},
   "devDependencies": {
@@ -40,6 +42,12 @@
     "tasegir": "^1.7.1",
     "truffle": "^5.1.23",
     "truffle-security": "^1.6.2",
+    "typechain": "^1.0.5",
+    "typechain-target-ethers": "^1.0.4",
+    "typechain-target-truffle": "^1.0.2",
+    "typechain-target-web3-v1": "^1.0.4",
+    "typechain-target-web3-v2": "^1.0.0",
+    "typescript": "^3.8.3",
     "web3-utils": "^1.2.6"
   },
   "engines": {
