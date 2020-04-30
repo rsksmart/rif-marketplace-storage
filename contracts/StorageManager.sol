@@ -114,7 +114,7 @@ contract StorageManager {
 
     /**
     >> FOR PROVIDER
-    @notice sets total capacity of Offer. Also add the difference from previous totalCapacity to availableCapacity
+    @notice sets total capacity of Offer.
     @param capacity the new capacity
     */
     function setTotalCapacity(uint128 capacity) public {
