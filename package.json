@@ -43,7 +43,7 @@
     "@typechain/web3-v1": "^1.0.0",
     "chai": "^4.2.0",
     "tasegir": "^1.7.1",
-    "truffle": "^5.1.23",
+    "truffle": "^5.1.24",
     "truffle-security": "^1.6.2",
     "typechain": "^2.0.0",
     "typescript": "^3.8.3",
