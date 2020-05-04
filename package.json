@@ -36,7 +36,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@openzeppelin/contracts": "^2.5.0",
+    "@openzeppelin/contracts": "^3.0.1",
     "@openzeppelin/test-helpers": "^0.5.5",
     "@typechain/ethers-v4": "^1.0.0",
     "@typechain/truffle-v5": "^1.0.0",
