@@ -17,6 +17,7 @@
     "email": "<rinke@iovlabs.org>"
   },
   "files": [
+    "build/contracts",
     "types"
   ],
   "directories": {
@@ -30,16 +31,22 @@
   },
   "scripts": {
     "test": "truffle test",
-    "lint": "tasegir lint"
+    "lint": "tasegir lint",
+    "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json"
   },
   "dependencies": {},
   "devDependencies": {
     "@openzeppelin/contracts": "^2.5.0",
     "@openzeppelin/test-helpers": "^0.5.5",
+    "@typechain/ethers-v4": "^1.0.0",
+    "@typechain/truffle-v5": "^1.0.0",
+    "@typechain/web3-v1": "^1.0.0",
     "chai": "^4.2.0",
     "tasegir": "^1.7.1",
     "truffle": "^5.1.23",
     "truffle-security": "^1.6.2",
+    "typechain": "^2.0.0",
+    "typescript": "^3.8.3",
     "web3-utils": "^1.2.6"
   },
   "engines": {
