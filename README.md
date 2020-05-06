@@ -1,7 +1,7 @@
 # RIF Marketplace Storage Pinning
 
 ```
-npm i @rsksmart/rif-marketplace-storage-pinning
+npm i @rsksmart/rif-marketplace-storage
 ```
 
 ## StorageManager contract

@@ -1,5 +1,5 @@
 {
-  "name": "@rsksmart/rif-marketplace-storage-pinning",
+  "name": "@rsksmart/rif-marketplace-storage",
   "version": "0.0.1",
   "description": "Contracts for incentivized pinning",
   "keywords": [
@@ -7,9 +7,9 @@
     "RSK",
     "pinning"
   ],
-  "homepage": "https://github.com/rsksmart/rif-marketplace-storage-pinning",
+  "homepage": "https://github.com/rsksmart/rif-marketplace-storage",
   "bugs": {
-    "url": "https://github.com/rsksmart/rif-marketplace-storage-pinning/issues"
+    "url": "https://github.com/rsksmart/rif-marketplace-storage/issues"
   },
   "license": "MIT",
   "author": {
@@ -27,7 +27,7 @@
   "main": "truffle-config.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rsksmart/rif-marketplace-storage-pinning"
+    "url": "https://github.com/rsksmart/rif-marketplace-storage"
   },
   "scripts": {
     "test": "truffle test",
@@ -36,7 +36,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@openzeppelin/contracts": "^2.5.0",
     "@openzeppelin/test-helpers": "^0.5.5",
     "@typechain/ethers-v4": "^1.0.0",
     "@typechain/truffle-v5": "^1.0.0",
