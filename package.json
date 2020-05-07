@@ -1,10 +1,11 @@
 {
   "name": "@rsksmart/rif-marketplace-storage",
-  "version": "0.0.1",
+  "version": "0.1.0-dev.0",
   "description": "Contracts for incentivized pinning",
   "keywords": [
     "RIF",
     "RSK",
+    "IPFS",
     "pinning"
   ],
   "homepage": "https://github.com/rsksmart/rif-marketplace-storage",
@@ -32,6 +33,7 @@
   "scripts": {
     "test": "truffle test",
     "lint": "tasegir lint",
+    "release": "tasegir release --no-docs --no-compile --no-test --no-build",
     "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json"
   },
   "dependencies": {},
