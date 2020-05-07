@@ -54,5 +54,13 @@
     "node": ">=10.0.0",
     "npm": ">=6.0.0"
   },
-  "types": "types/index.d.ts"
+  "types": "types/index.d.ts",
+  "contributors": [
+    "Adam Uhlíř <adam@uhlir.dev>",
+    "Julian M. Rodriguez <56316686+julianmrodri@users.noreply.github.com>",
+    "Rinke Hendriksen <33000441+Eknir@users.noreply.github.com>",
+    "Vojtech Simetka <vojtech@simetka.cz>",
+    "dependabot-preview[bot] <27856297+dependabot-preview[bot]@users.noreply.github.com>",
+    "eknir <rinkehendriksen@gmail.com>"
+  ]
 }
