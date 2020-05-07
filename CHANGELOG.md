@@ -1,6 +1,7 @@
 <a name="0.1.0-dev.0"></a>
 # 0.1.0-dev.0 (2020-05-07)
 
+First dev release. Includes basically working contract shallowly tested. 
 
 ### Bug Fixes
 
