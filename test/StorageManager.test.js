@@ -143,12 +143,42 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Billing period of 0 not allowed')
     })
 
-    it('should revert when agreement already exists', async () => {
+    it('should payout funds when agreement already exists with running funds', async () => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 })
+      await storageManager.incrementTime(11)
 
-      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 100, [], { from: Consumer, value: 2000 }),
-        'StorageManager: Agreement already active')
+      const receipt = await storageManager.newAgreement(cid, Provider, 10, 100, [], { from: Consumer, value: 2000 })
+      expectEvent(receipt, 'AgreementFundsPayout', {
+        amount: '1000'
+      })
+      expectEvent.notEmitted(receipt, 'AgreementStopped')
+    })
+
+    it('should change billing plan when agreement already exists with running funds', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 100], [], { from: Provider })
+      const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 10, [], {
+        from: Consumer,
+        value: 2000
+      }))
+      await storageManager.incrementTime(1)
+
+      // This call change the billing plan and saves the lastPayoutDate
+      const receipt = await storageManager.newAgreement(cid, Provider, 100, 100, [], { from: Consumer, value: 20000 })
+      expectEvent.notEmitted(receipt, 'AgreementFundsPayout')
+      expectEvent.notEmitted(receipt, 'AgreementStopped')
+
+      // This is just before to be payedout
+      await storageManager.incrementTime(99)
+      let payoutReceipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
+      expectEvent.notEmitted(receipt, 'AgreementFundsPayout')
+      expectEvent.notEmitted(receipt, 'AgreementStopped')
+
+      await storageManager.incrementTime(1)
+      payoutReceipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
+      expectEvent(payoutReceipt, 'AgreementFundsPayout', {
+        amount: '10000'
+      })
     })
 
     it('should revert when Offer does not have available capacity', async () => {
@@ -282,7 +312,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Price not available anymore')
     })
 
-    it('should revert when agreement is expired', async () => {
+    it('should revert when agreement is payed out', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, [], {
         from: Consumer,
