@@ -84,14 +84,8 @@ contract StorageManager {
     @notice set the totalCapacity and billingPlans of a Offer.
     @dev
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
-    - Exercise caution with assigning additional capacity when capacity is already taken.
-        It may happen that when a lot of capacity is available and we release already-taken capacity, capacity overflows.
-        We explicitly allow this overflow to happen on the smart-contract level,
-        because the worst thing that can happen is that the provider now has less storage available than planned (in which case he can top it up himself).
-        However, take care of this in the client. REF_CAPACITY
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
-    @param capacity the amount of bytes offered.
-    If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the lenght of billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
@@ -127,7 +121,7 @@ contract StorageManager {
 
     /**
     >> FOR PROVIDER
-    @notice stops the Offer. It sets
+    @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
     function terminateOffer() public activeOffer(msg.sender) {
@@ -182,7 +176,14 @@ contract StorageManager {
         Offer storage offer = offerRegistry[provider];
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
-        require(agreement.lastPayoutDate == 0, "StorageManager: Agreement already active");
+
+        // If the current agreement is still running (but for example already expired, eq. ran out of the funds in past)
+        // we need to payout all the funds. AgreementStopped can be emitted as part of this call if no
+        if(agreement.lastPayoutDate != 0){
+            bytes32[] memory array = new bytes32[](1);
+            array[0] = agreementReference;
+            _payoutFunds(array, payable(provider));
+        }
 
         uint64 billingPrice = offer.billingPlans[billingPeriod];
         require(billingPrice != 0, "StorageManager: Billing price doesn't exist for Offer");
@@ -288,6 +289,8 @@ contract StorageManager {
     @notice payout already earned funds of one or more Agreement
     @dev
     - Provider must call an expired agreement themselves as soon as the agreement is expired, to add back the capacity to their Offer.
+    - Payout can be triggered by other events as well. Like in newAgreement call with either existing agreement or when other
+      Agreements are passed to the agreementsReferencesToBePayedOut array.
     @param agreementReferences reference to one or more Agreement
     */
     function payoutFunds(bytes32[] memory agreementReferences) public {
