@@ -236,7 +236,7 @@ contract StorageManager {
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
 
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
-        require(offer.billingPlans[agreement.billingPeriod] != 0, "StorageManager: Price not available anymore");
+        require(offer.billingPlans[agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
 
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
         emit AgreementFundsDeposited(agreementReference, msg.value);
@@ -283,7 +283,7 @@ contract StorageManager {
     /**
     >> FOR PROVIDER
     @notice payout already earned funds of one or more Agreement
-    @dev 
+    @dev
     - Provider must call an expired agreement themselves as soon as the agreement is expired, to add back the capacity to their Offer.
     @param agreementReferences reference to one or more Agreement
     */

@@ -273,6 +273,15 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Price not available anymore')
     })
 
+    it('should revert when billing plans has changed', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 })
+      await storageManager.setBillingPlans([10, 100], [50, 80], { from: Provider })
+
+      await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
+        'StorageManager: Price not available anymore')
+    })
+
     it('should revert when agreement is expired', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 100, 1, [], {
