@@ -6,10 +6,6 @@ contract TestStorageManager is StorageManager {
     uint time;
 
     function _time() internal view override returns (uint) {
-        if(time == 0){
-            return now;
-        }
-
         return time;
     }
 
