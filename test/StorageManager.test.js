@@ -294,6 +294,18 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
         'StorageManager: Agreement not active')
     })
+
+    it('should revert when agreement ran out of funds', async () => {
+      await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 1, [], {
+        from: Consumer,
+        value: 1500
+      })
+      await storageManager.incrementTime(2)
+
+      await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
+        'StorageManager: Agreement already ran out of funds')
+    })
   })
 
   describe('withdrawFunds', function () {

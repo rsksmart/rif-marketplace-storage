@@ -227,6 +227,8 @@ contract StorageManager {
     @notice deposits new funds to the Agreement.
     @dev
         - depositing funds to Agreement that is linked to terminated Offer is not possible
+        - depositing funds to Agreement that already is expired (eq. ran out of funds at some point) is not possible.
+          Call NewAgreement instead. The data needs to be re-provided though.
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
@@ -237,6 +239,7 @@ contract StorageManager {
 
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
         require(offer.billingPlans[agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
+        require(agreement.availableFunds - _calculateSpentFunds(agreement) > agreement.billingPrice * agreement.size, "StorageManager: Agreement already ran out of funds");
 
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
         emit AgreementFundsDeposited(agreementReference, msg.value);
