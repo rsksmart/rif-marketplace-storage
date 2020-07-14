@@ -416,6 +416,18 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
+    it('should not do anything when nothing is to payout', async () => {
+      await storageManager.setOffer(1000, [1, 100], [10, 100], [], { from: Provider })
+      const agreementReference = getAgreementReference(
+        await storageManager.newAgreement(cid, Provider, 100, 100, [], { from: Consumer, value: 50000 })
+      )
+      await storageManager.incrementTime(2)
+
+      const receipt = await storageManager.payoutFunds([agreementReference], { from: Provider })
+      expectEvent.notEmitted(receipt, 'AgreementFundsPayout')
+      expectEvent.notEmitted(receipt, 'AgreementStopped')
+    })
+
     it('should payout funds and stop agreement when run out of funds', async () => {
       await storageManager.setOffer(1000, [1, 100], [10, 80], [], { from: Provider })
       const agreementReference = getAgreementReference(

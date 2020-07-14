@@ -283,7 +283,7 @@ contract StorageManager {
     /**
     >> FOR PROVIDER
     @notice payout already earned funds of one or more Agreement
-    @dev 
+    @dev
     - Provider must call an expired agreement themselves as soon as the agreement is expired, to add back the capacity to their Offer.
     @param agreementReferences reference to one or more Agreement
     */
@@ -301,27 +301,30 @@ contract StorageManager {
             require(agreement.lastPayoutDate != 0, "StorageManager: Agreement is inactive");
 
             uint256 spentFunds = _calculateSpentFunds(agreement);
-            agreement.availableFunds = agreement.availableFunds.sub(spentFunds);
-            toTransfer = toTransfer.add(spentFunds);
+            if(spentFunds > 0){
+                agreement.availableFunds = agreement.availableFunds.sub(spentFunds);
+                toTransfer = toTransfer.add(spentFunds);
 
-            // Agreement ran out of funds ==> Agreement is expiring
-            if (agreement.availableFunds < agreement.billingPrice * agreement.size) {
-                // Agreement becomes inactive
-                agreement.lastPayoutDate = 0;
+                // Agreement ran out of funds ==> Agreement is expiring
+                if (agreement.availableFunds < agreement.billingPrice * agreement.size) {
+                    // Agreement becomes inactive
+                    agreement.lastPayoutDate = 0;
 
-                // Add back capacity
-                offer.utilizedCapacity = offer.utilizedCapacity - agreement.size;
-                emit AgreementStopped(agreementReferences[i]);
-            } else {// Provider called this during active agreement which has still funds to run
-                agreement.lastPayoutDate = uint128(_time());
+                    // Add back capacity
+                    offer.utilizedCapacity = offer.utilizedCapacity - agreement.size;
+                    emit AgreementStopped(agreementReferences[i]);
+                } else {// Provider called this during active agreement which has still funds to run
+                    agreement.lastPayoutDate = uint128(_time());
+                }
+
+                emit AgreementFundsPayout(agreementReferences[i], spentFunds);
             }
-
-            emit AgreementFundsPayout(agreementReferences[i], spentFunds);
         }
 
-        require(toTransfer > 0, "StorageManager: Nothing to withdraw");
-        (bool success,) = provider.call.value(toTransfer)("");
-        require(success, "StorageManager: Transfer failed.");
+        if(toTransfer > 0){
+            (bool success,) = provider.call.value(toTransfer)("");
+            require(success, "StorageManager: Transfer failed.");
+        }
     }
 
     function getAgreementReference(bytes32[] memory dataReference, address creator) public pure returns (bytes32) {
