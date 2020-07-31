@@ -61,6 +61,13 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should revert when billing plans array is not the same size as billing prices', async () => {
       await expectRevert(storageManager.setOffer(1000, [1], [1, 2], [], { from: Provider }), 'StorageManager: Billing plans array length has to equal to billing prices')
     })
+
+    it('should not be callable when stopped', async () => {
+      await storageManager.stop({ from: randomPerson })
+      await expectRevert(storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider }),
+        'Stoppable: stopped'
+      )
+    })
   })
 
   describe('terminateOffer', function () {
@@ -269,6 +276,13 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
       await expectUtilizedCapacity(200)
     })
+
+    it('should not be callable when stopped', async () => {
+      await storageManager.stop({ from: randomPerson })
+      await expectRevert(storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider }),
+        'Stoppable: stopped'
+      )
+    })
   })
 
   describe('depositFunds', function () {
@@ -323,6 +337,14 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await storageManager.payoutFunds([agreementReference], { from: Provider })
       await expectRevert(storageManager.depositFunds(cid, Provider, { from: Consumer, value: 100 }),
         'StorageManager: Agreement not active')
+    })
+
+    it('should not be callable when stopped', async () => {
+      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+      await storageManager.stop({ from: randomPerson })
+      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 }),
+        'Stoppable: stopped'
+      )
     })
 
     it('should revert when agreement ran out of funds', async () => {

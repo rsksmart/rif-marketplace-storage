@@ -147,7 +147,6 @@ contract StorageManager is Stoppable, Ownable {
     @dev
     - no new Agreement can be created and no existing Agreement can be prolonged.
     - All existing Agreement are still valid for the amount of periods still deposited.
-    - cannot be called when contract is stopped
     */
     function terminateOffer() public activeOffer(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
