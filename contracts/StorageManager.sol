@@ -60,9 +60,13 @@ contract StorageManager {
     // offerRegistry stores the open or closed Offer for provider.
     mapping(address => Offer) public offerRegistry;
 
+    // stakeRegistry allows anybody to make a deposit in this contract.
+    mapping(address => uint256) public stakeRegistry;
+
     event TotalCapacitySet(address indexed provider, uint128 capacity);
     event BillingPlanSet(address indexed provider, uint64 period, uint64 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
+    event Staked(address indexed staker, uint256 value);
 
     event NewAgreement(
         bytes32 agreementReference,
@@ -295,6 +299,14 @@ contract StorageManager {
     */
     function payoutFunds(bytes32[] memory agreementReferences) public {
         _payoutFunds(agreementReferences, msg.sender);
+    }
+
+    /**
+    @notice use this function to deposit funds in the contract
+     */
+    function stake() public payable {
+        stakeRegistry[msg.sender] = stakeRegistry[msg.sender].add(msg.value);
+        emit Staked(msg.sender, msg.value);
     }
 
     function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal {
