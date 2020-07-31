@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 
 /// @title StorageManagerToken
 /// @author Rinke Hendriksen <rinke@iovlabs.org>

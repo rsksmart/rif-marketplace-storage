@@ -7,7 +7,7 @@ const {
 const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
 const StorageManager = artifacts.require('TestStorageManagerToken')
-
+const ERC20 = artifacts.require("TestToken")
 function getAgreementReference (receipt) {
   const newAgreementEvent = receipt.logs.find(e => e.event === 'NewAgreement')
   return newAgreementEvent.args.agreementReference
@@ -16,9 +16,13 @@ function getAgreementReference (receipt) {
 contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   let storageManager
   const cid = [asciiToHex('/ipfs/QmSomeHash')]
+  const initialBalance = 1000000
 
   beforeEach(async function () {
-    storageManager = await StorageManager.new({ from: randomPerson })
+    erc20 = await ERC20.new("TOKEN", "TKN", {from: randomPerson})
+    erc20.mint(Provider, initialBalance, {from: randomPerson})
+    erc20.mint(Consumer, initialBalance, {from: randomPerson})
+    storageManager = await StorageManager.new(erc20.address, { from: randomPerson })
     await storageManager.setTime(100)
   })
 

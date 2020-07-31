@@ -27,3 +27,9 @@ contract TestStorageManagerToken is StorageManagerToken {
         return offerRegistry[provider].utilizedCapacity;
     }
 }
+
+contract TestToken is ERC20PresetMinterPauser {
+
+    constructor(string memory name, string memory symbol) public ERC20PresetMinterPauser(name, symbol) { }
+
+}
