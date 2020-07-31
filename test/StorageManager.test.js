@@ -499,4 +499,15 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await expectUtilizedCapacity(0)
     })
   })
+  describe('stake', function () {
+    it('should process a stake', async () => {
+      expect((await storageManager.stakeRegistry(randomPerson)).toNumber()).to.eql(0)
+      const receipt = await storageManager.stake({ from: randomPerson, value: 5000 })
+      expectEvent(receipt, 'Staked', {
+        staker: randomPerson,
+        value: '5000'
+      })
+      expect((await storageManager.stakeRegistry(randomPerson)).toNumber()).to.eql(5000)
+    })
+  })
 })
