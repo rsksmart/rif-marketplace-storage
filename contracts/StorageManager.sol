@@ -1,17 +1,20 @@
 pragma solidity 0.6.2;
 
 import "./vendor/SafeMath.sol";
+import "./Stoppable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title StorageManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
 /// @author Adam Uhlir <adam@iovlabs.org>
 /// @notice Providers can offer their storage space and list their price and Consumers can take these offers
-contract StorageManager {
+contract StorageManager is Stoppable, Ownable {
 
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SafeMath for uint64;
-    uint64 constant private MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
+    // 6 * 30 days ~~ 6 months. When this contract is stopped, the MAX_BILLING_PERIOD is the period in which agreements from this contract are still valid
+    uint64 constant private MAX_BILLING_PERIOD = 15552000;
 
     modifier activeOffer(address provider){
         Offer storage offer = offerRegistry[provider];
@@ -79,13 +82,31 @@ contract StorageManager {
     event AgreementFundsPayout(bytes32 indexed agreementReference, uint256 amount);
     event AgreementStopped(bytes32 indexed agreementReference);
 
+
+    constructor() public Ownable() { }
+
+    /**
+    @notice stop the contract. WARNING: once stopped, the contact can never be re-activiated again. All current offers will stay active, money can be withdrawn, but no new offers/changes to existing offers can be made.
+    @dev use this function to "upgrade" the smart contract. The idea is to deploy the new version of the contract, stop this contract and hereby force the users to slowly migrate to the old contract, without disrupting the existing offers.
+     */
+    function stop() public onlyOwner {
+        _stop();
+    }
+
     /**
     >> FOR PROVIDER
     @notice set the totalCapacity and billingPlans of a Offer.
     @dev
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
+    - Exercise caution with assigning additional capacity when capacity is already taken.
+        It may happen that when a lot of capacity is available and we release already-taken capacity, capacity overflows.
+        We explicitly allow this overflow to happen on the smart-contract level,
+        because the worst thing that can happen is that the provider now has less storage available than planned (in which case he can top it up himself).
+        However, take care of this in the client. REF_CAPACITY
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
-    @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    - cannot be called when contract is stopped
+    @param capacity the amount of bytes offered.
+    If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the lenght of billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
@@ -94,7 +115,7 @@ contract StorageManager {
         uint64[] memory billingPeriods,
         uint64[] memory billingPrices,
         bytes32[] memory message
-    ) public {
+    ) public whenNotStopped {
         Offer storage offer = offerRegistry[msg.sender];
         setTotalCapacity(capacity);
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
@@ -110,9 +131,10 @@ contract StorageManager {
     /**
     >> FOR PROVIDER
     @notice sets total capacity of Offer.
+    @dev cannot be called when contract is stopped
     @param capacity the new capacity
     */
-    function setTotalCapacity(uint128 capacity) public {
+    function setTotalCapacity(uint128 capacity) public whenNotStopped {
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -122,7 +144,10 @@ contract StorageManager {
     /**
     >> FOR PROVIDER
     @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
-    @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
+    @dev
+    - no new Agreement can be created and no existing Agreement can be prolonged.
+    - All existing Agreement are still valid for the amount of periods still deposited.
+    - cannot be called when contract is stopped
     */
     function terminateOffer() public activeOffer(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
@@ -136,10 +161,11 @@ contract StorageManager {
     @dev
     - setting the price to 0 means that a particular period is not offered, which can be used to remove a period from the offer.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless.
+    - cannot be called when contract is stopped
     @param billingPeriods the offered periods. Length must be equal to billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
-    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public activeOffer(msg.sender) {
+    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public activeOffer(msg.sender) whenNotStopped {
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
         require(billingPeriods.length == billingPrices.length, "StorageManager: Billing plans array length has to equal to billing prices");
         Offer storage offer = offerRegistry[msg.sender];
@@ -163,13 +189,19 @@ contract StorageManager {
      - The to-be-pinned data reference's size in bytes (rounded up) must be equal in size to param size.
      - Provider can reject to pin data reference when it exceeds specified size.
      - The ownership of Agreement is enforced with agreementReference structure which is calculated as: hash(msg.sender, dataReference)
+     - cannot be called when contract is stopped
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
     @param size the size of the to-be-pinned file in bytes (rounded up).
     @param billingPeriod the chosen period for billing.
     @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
-    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable activeOffer(provider) {
+    function newAgreement(
+        bytes32[] memory dataReference,
+        address provider, uint128 size,
+        uint64 billingPeriod,
+        bytes32[] memory agreementsReferencesToBePayedOut
+    ) public payable activeOffer(provider) whenNotStopped {
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
         require(size > 0, "StorageManager: Size has to be bigger then 0");
 
@@ -228,12 +260,16 @@ contract StorageManager {
     @notice deposits new funds to the Agreement.
     @dev
         - depositing funds to Agreement that is linked to terminated Offer is not possible
+        - cannot be called when contract is stopped
         - depositing funds to Agreement that already is expired (eq. ran out of funds at some point) is not possible.
           Call NewAgreement instead. The data needs to be re-provided though.
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(bytes32[] memory dataReference, address provider) public payable activeOffer(provider) existingAgreement(dataReference, provider) {
+    function depositFunds(
+        bytes32[] memory dataReference,
+        address provider
+    ) public payable activeOffer(provider) existingAgreement(dataReference, provider) whenNotStopped {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Offer storage offer = offerRegistry[provider];
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
@@ -255,7 +291,11 @@ contract StorageManager {
     @param dataReference the data reference of agreement to be funds withdrawn from
     @param provider the address of the provider of the Offer.
     */
-    function withdrawFunds(bytes32[] memory dataReference, address provider, uint256 amount) public payable existingAgreement(dataReference, provider) {
+    function withdrawFunds(
+        bytes32[] memory dataReference,
+        address provider,
+        uint256 amount
+    ) public payable existingAgreement(dataReference, provider) {
         Offer storage offer = offerRegistry[provider];
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
