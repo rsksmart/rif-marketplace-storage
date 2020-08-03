@@ -36,10 +36,9 @@
     "release": "tasegir release --no-docs --no-compile --no-test --no-build",
     "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@openzeppelin/contracts": "3.1.0",
+    "@openzeppelin/contracts": "^3.1.0",
     "@openzeppelin/test-environment": "^0.1.4",
     "@openzeppelin/test-helpers": "^0.5.6",
     "@typechain/ethers-v4": "^1.0.0",
