@@ -302,11 +302,21 @@ contract StorageManager {
     }
 
     /**
-    @notice use this function to deposit funds in the contract
+    @notice use this function to stake funds in the contract
      */
     function stake() public payable {
         stakeRegistry[msg.sender] = stakeRegistry[msg.sender].add(msg.value);
         emit Staked(msg.sender, msg.value);
+    }
+
+    /**
+    @notice use this function to unstake funds from the contract
+     */
+    function unstake() public {
+        uint256 toTransfer = stakeRegistry[msg.sender];
+        stakeRegistry[msg.sender] = 0;
+        msg.sender.transfer(toTransfer);
+        emit Staked(msg.sender, 0);
     }
 
     function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal {
