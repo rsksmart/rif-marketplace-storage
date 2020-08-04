@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
 const {
   expectEvent,
-  expectRevert,
-  balance
+  expectRevert
 } = require('@openzeppelin/test-helpers')
 const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
