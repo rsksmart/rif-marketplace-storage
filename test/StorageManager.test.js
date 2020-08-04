@@ -502,12 +502,12 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   describe('stake', function () {
     it('should process a stake', async () => {
       const toStake = 5000
-      //track balance
-      let initialBalance = await balance.current(randomPerson)
+      // track balance
+      const initialBalance = await balance.current(randomPerson)
       // should start at 0
       expect((await storageManager.stakeRegistry(randomPerson)).toNumber()).to.eql(0)
       // stake
-      const receipt = await storageManager.stake({ from: randomPerson, value: toStake, gasPrice: 0  })
+      const receipt = await storageManager.stake({ from: randomPerson, value: toStake, gasPrice: 0 })
       // should emit event
       expectEvent(receipt, 'Staked', {
         staker: randomPerson,
@@ -516,15 +516,15 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       // should update staked value
       expect((await storageManager.stakeRegistry(randomPerson)).toNumber()).to.eql(toStake)
       // should update initial balance
-      let nextBalance = await balance.current(randomPerson)
+      const nextBalance = await balance.current(randomPerson)
       expect(initialBalance.sub(toBN(5000))).to.eql(nextBalance)
     })
   })
   describe('stake', function () {
     it('should process an unstake', async () => {
       const toStake = 5000
-      //track balance
-      let initialBalance = await balance.current(randomPerson)
+      // track balance
+      const initialBalance = await balance.current(randomPerson)
       // stake
       await storageManager.stake({ from: randomPerson, value: toStake, gasPrice: 0 })
       // should update staked value
@@ -539,7 +539,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       // should update staked value
       expect((await storageManager.stakeRegistry(randomPerson)).toNumber()).to.eql(0)
       // should have send balance to randomPerson
-      let finalBalance = await balance.current(randomPerson)
+      const finalBalance = await balance.current(randomPerson)
       expect(finalBalance).to.eql(initialBalance)
     })
   })
