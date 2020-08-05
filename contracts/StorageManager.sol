@@ -13,20 +13,6 @@ contract StorageManager {
     using SafeMath for uint64;
     uint64 constant private MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
 
-    modifier activeOffer(address provider){
-        Offer storage offer = offerRegistry[provider];
-        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
-        _;
-    }
-
-    modifier existingAgreement(bytes32[] memory dataReference, address provider){
-        Offer storage offer = offerRegistry[provider];
-        bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
-        Agreement storage agreement = offer.agreementRegistry[agreementReference];
-        require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
-        _;
-    }
-
     /*
     Offer represents:
      - utilizedCapacity: how much is capacity is utilized in Offer.
@@ -124,8 +110,9 @@ contract StorageManager {
     @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
-    function terminateOffer() public activeOffer(msg.sender) {
+    function terminateOffer() public {
         Offer storage offer = offerRegistry[msg.sender];
+        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         offer.totalCapacity = 0;
         emit TotalCapacitySet(msg.sender, 0);
     }
@@ -139,10 +126,11 @@ contract StorageManager {
     @param billingPeriods the offered periods. Length must be equal to billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
-    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public activeOffer(msg.sender) {
+    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public {
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
         require(billingPeriods.length == billingPrices.length, "StorageManager: Billing plans array length has to equal to billing prices");
         Offer storage offer = offerRegistry[msg.sender];
+        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         for (uint8 i = 0; i < billingPeriods.length; i++) {
             _setBillingPlan(offer, billingPeriods[i], billingPrices[i]);
         }
@@ -169,11 +157,12 @@ contract StorageManager {
     @param billingPeriod the chosen period for billing.
     @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
-    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable activeOffer(provider) {
+    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable {
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
         require(size > 0, "StorageManager: Size has to be bigger then 0");
 
         Offer storage offer = offerRegistry[provider];
+        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
 
@@ -233,11 +222,12 @@ contract StorageManager {
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(bytes32[] memory dataReference, address provider) public payable activeOffer(provider) existingAgreement(dataReference, provider) {
+    function depositFunds(bytes32[] memory dataReference, address provider) public payable {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Offer storage offer = offerRegistry[provider];
+        require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
-
+        require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
         require(offer.billingPlans[agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
         require(agreement.availableFunds - _calculateSpentFunds(agreement) > agreement.billingPrice * agreement.size, "StorageManager: Agreement already ran out of funds");
@@ -255,11 +245,11 @@ contract StorageManager {
     @param dataReference the data reference of agreement to be funds withdrawn from
     @param provider the address of the provider of the Offer.
     */
-    function withdrawFunds(bytes32[] memory dataReference, address provider, uint256 amount) public payable existingAgreement(dataReference, provider) {
+    function withdrawFunds(bytes32[] memory dataReference, address provider, uint256 amount) public payable {
         Offer storage offer = offerRegistry[provider];
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender);
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
-
+        require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         uint256 maxWithdrawableFunds;
         if (agreement.lastPayoutDate == 0) {
             // Agreement is inactive, consumer can withdraw all funds
