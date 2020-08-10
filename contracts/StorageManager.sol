@@ -16,7 +16,7 @@ contract StorageManager {
     /*
     Offer represents:
      - utilizedCapacity: how much is capacity is utilized in Offer.
-     - totalCapacity: total amount of bytes offered.
+     - totalCapacity: total amount of mega-bytes (MB) offered.
      - billingPlans: maps a billing period to a billing price. When a price is 0, the period is not offered.
      - agreementRegistry: the proposed and accepted Agreement
     */
@@ -31,7 +31,7 @@ contract StorageManager {
     Agreement represents:
      - billingPrice: price per byte that is collected per each period.
      - billingPeriod: period how often billing happens.
-     - size: allocated size for the Agreement (in bytes, rounded up)
+     - size: allocated size for the Agreement (in MB, rounded up)
      - availableFunds: funds available for the billing of the Agreement.
      - lastPayoutDate: When was the last time Provider was payed out. Zero either means non-existing or terminated Agreement.
     */
@@ -71,7 +71,7 @@ contract StorageManager {
     @dev
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
-    @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @param capacity the amount of MB offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the lenght of billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
@@ -148,12 +148,12 @@ contract StorageManager {
     >> FOR CONSUMER
     @notice new Agreement for given Offer
     @dev
-     - The to-be-pinned data reference's size in bytes (rounded up) must be equal in size to param size.
+     - The to-be-pinned data reference's size in MB (rounded up) must be equal in size to param size.
      - Provider can reject to pin data reference when it exceeds specified size.
      - The ownership of Agreement is enforced with agreementReference structure which is calculated as: hash(msg.sender, dataReference)
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
-    @param size the size of the to-be-pinned file in bytes (rounded up).
+    @param size the size of the to-be-pinned file in MB (rounded up).
     @param billingPeriod the chosen period for billing.
     @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
