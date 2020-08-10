@@ -48,7 +48,7 @@ contract StorageManager {
 
     event TotalCapacitySet(address indexed provider, uint128 capacity);
     event BillingPlanSet(address indexed provider, uint64 period, uint64 price);
-    event MessageEmitted(address indexed provider, bytes32[] message);
+    event PeerIdEmitted(address indexed provider, bytes32[] peerId);
 
     event NewAgreement(
         bytes32 agreementReference,
@@ -74,12 +74,12 @@ contract StorageManager {
     @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the lenght of billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
-    @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
+    @param peerId that Provider's node uses for off-chain communication and for authentication of his messages.
     */
     function setOffer(uint128 capacity,
         uint64[] memory billingPeriods,
         uint64[] memory billingPrices,
-        bytes32[] memory message
+        bytes32[] memory peerId
     ) public {
         Offer storage offer = offerRegistry[msg.sender];
         setTotalCapacity(capacity);
@@ -88,9 +88,7 @@ contract StorageManager {
         for (uint8 i = 0; i < billingPeriods.length; i++) {
             _setBillingPlan(offer, billingPeriods[i], billingPrices[i]);
         }
-        if (message.length > 0) {
-            _emitMessage(message);
-        }
+        emitPeerId(peerId);
     }
 
     /**
@@ -138,10 +136,11 @@ contract StorageManager {
 
     /**
     >> FOR PROVIDER
-    @param message the Provider may send a message (e.g. his nodeID). Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
+    @param peerId that his node uses for off-chain communication and for authentication of his messages.
     */
-    function emitMessage(bytes32[]memory message) public {
-        _emitMessage(message);
+    function emitPeerId(bytes32[]memory peerId) public {
+        require(peerId.length > 0, "StorageManager: PeerId must be set");
+        emit PeerIdEmitted(msg.sender, peerId);
     }
 
     /**
@@ -348,10 +347,6 @@ contract StorageManager {
         require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         offer.billingPlans[period] = price;
         emit BillingPlanSet(msg.sender, period, price);
-    }
-
-    function _emitMessage(bytes32[] memory message) internal {
-        emit MessageEmitted(msg.sender, message);
     }
 
     /**
