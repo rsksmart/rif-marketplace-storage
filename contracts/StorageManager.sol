@@ -180,7 +180,7 @@ contract StorageManager {
         // Adding to previous availableFunds as the agreement could have been expired
         // and Consumer is reactivating it, so in order not to loose any previous funds.
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
-        require(agreement.availableFunds >= size * billingPrice, "StorageManager: Funds deposited has to be for at least one billing period");
+        require(agreement.availableFunds >= size.mul(billingPrice), "StorageManager: Funds deposited has to be for at least one billing period");
 
         agreement.size = size;
         agreement.billingPrice = billingPrice;
@@ -230,7 +230,7 @@ contract StorageManager {
         require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
         require(offer.billingPlans[agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
-        require(agreement.availableFunds - _calculateSpentFunds(agreement) > agreement.billingPrice * agreement.size, "StorageManager: Agreement already ran out of funds");
+        require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) > agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
 
         agreement.availableFunds = agreement.availableFunds.add(msg.value);
         emit AgreementFundsDeposited(agreementReference, msg.value);
@@ -257,7 +257,7 @@ contract StorageManager {
         } else {
             // Consumer can withdraw all funds except for those already used for past storage hosting
             // AND for current period
-            maxWithdrawableFunds = agreement.availableFunds - _calculateSpentFunds(agreement) - (agreement.billingPrice * agreement.size);
+            maxWithdrawableFunds = agreement.availableFunds.sub(_calculateSpentFunds(agreement)).sub((agreement.billingPrice * agreement.size));
         }
 
         if (amount == 0) {
@@ -302,12 +302,12 @@ contract StorageManager {
                 toTransfer = toTransfer.add(spentFunds);
 
                 // Agreement ran out of funds ==> Agreement is expiring
-                if (agreement.availableFunds < agreement.billingPrice * agreement.size) {
+                if (agreement.availableFunds < agreement.billingPrice.mul(agreement.size)) {
                     // Agreement becomes inactive
                     agreement.lastPayoutDate = 0;
 
                     // Add back capacity
-                    offer.utilizedCapacity = offer.utilizedCapacity - agreement.size;
+                    offer.utilizedCapacity = uint128(offer.utilizedCapacity.sub(agreement.size));
                     emit AgreementStopped(agreementReferences[i]);
                 } else {// Provider called this during active agreement which has still funds to run
                     agreement.lastPayoutDate = uint128(_time());
@@ -329,13 +329,13 @@ contract StorageManager {
 
     function _calculateSpentFunds(Agreement memory agreement) internal view returns (uint256) {
         // TODO: Can be most probably smaller then uint256
-        uint256 totalPeriodPrice = agreement.size * agreement.billingPrice;
-        uint256 periodsSinceLastPayout = (_time() - agreement.lastPayoutDate) / agreement.billingPeriod;
-        uint256 spentFunds = periodsSinceLastPayout * totalPeriodPrice;
+        uint256 totalPeriodPrice = agreement.size.mul(agreement.billingPrice);
+        uint256 periodsSinceLastPayout = _time().sub(agreement.lastPayoutDate).div(agreement.billingPeriod);
+        uint256 spentFunds = periodsSinceLastPayout.mul(totalPeriodPrice);
 
         // Round the funds based on the available funds
         if (spentFunds > agreement.availableFunds) {
-            spentFunds = (agreement.availableFunds / totalPeriodPrice) * totalPeriodPrice;
+            spentFunds = agreement.availableFunds.div(totalPeriodPrice).mul(totalPeriodPrice);
         }
 
         return spentFunds;
