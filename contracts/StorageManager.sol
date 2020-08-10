@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-import "./vendor/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 /// @title StorageManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
