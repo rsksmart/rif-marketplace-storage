@@ -23,7 +23,7 @@ contract StorageManager {
     struct Offer {
         uint128 utilizedCapacity;
         uint128 totalCapacity;
-        mapping(uint64 => uint64) billingPlans;
+        mapping(uint64 => uint128) billingPlans;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
 
@@ -36,7 +36,7 @@ contract StorageManager {
      - lastPayoutDate: When was the last time Provider was payed out. Zero either means non-existing or terminated Agreement.
     */
     struct Agreement {
-        uint64 billingPrice;
+        uint128 billingPrice;
         uint64 billingPeriod;
         uint256 availableFunds;
         uint128 size;
@@ -47,7 +47,7 @@ contract StorageManager {
     mapping(address => Offer) public offerRegistry;
 
     event TotalCapacitySet(address indexed provider, uint128 capacity);
-    event BillingPlanSet(address indexed provider, uint64 period, uint64 price);
+    event BillingPlanSet(address indexed provider, uint64 period, uint128 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
 
     event NewAgreement(
@@ -57,7 +57,7 @@ contract StorageManager {
         address indexed provider,
         uint128 size,
         uint64 billingPeriod,
-        uint64 billingPrice,
+        uint128 billingPrice,
         uint256 availableFunds
     );
     event AgreementFundsDeposited(bytes32 indexed agreementReference, uint256 amount);
@@ -78,7 +78,7 @@ contract StorageManager {
     */
     function setOffer(uint128 capacity,
         uint64[] memory billingPeriods,
-        uint64[] memory billingPrices,
+        uint128[] memory billingPrices,
         bytes32[] memory message
     ) public {
         Offer storage offer = offerRegistry[msg.sender];
@@ -126,7 +126,7 @@ contract StorageManager {
     @param billingPeriods the offered periods. Length must be equal to billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
-    function setBillingPlans(uint64[] memory billingPeriods, uint64[] memory billingPrices) public {
+    function setBillingPlans(uint64[] memory billingPeriods, uint128[] memory billingPrices) public {
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
         require(billingPeriods.length == billingPrices.length, "StorageManager: Billing plans array length has to equal to billing prices");
         Offer storage offer = offerRegistry[msg.sender];
@@ -174,7 +174,7 @@ contract StorageManager {
             _payoutFunds(array, payable(provider));
         }
 
-        uint64 billingPrice = offer.billingPlans[billingPeriod];
+        uint128 billingPrice = offer.billingPlans[billingPeriod];
         require(billingPrice != 0, "StorageManager: Billing price doesn't exist for Offer");
 
         // Adding to previous availableFunds as the agreement could have been expired
@@ -344,7 +344,7 @@ contract StorageManager {
     /*
     @dev Only non-zero prices periods are considered to be active. To remove a period, set it's price to 0
     */
-    function _setBillingPlan(Offer storage offer, uint64 period, uint64 price) internal {
+    function _setBillingPlan(Offer storage offer, uint64 period, uint128 price) internal {
         require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         offer.billingPlans[period] = price;
         emit BillingPlanSet(msg.sender, period, price);
