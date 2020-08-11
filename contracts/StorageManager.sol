@@ -21,8 +21,8 @@ contract StorageManager {
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
-        uint128 utilizedCapacity;
-        uint128 totalCapacity;
+        uint64 utilizedCapacity;
+        uint64 totalCapacity;
         mapping(uint64 => uint128) billingPlans;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
@@ -30,7 +30,7 @@ contract StorageManager {
     /*
     Agreement represents:
      - billingPrice: price per byte that is collected per each period.
-     - billingPeriod: period how often billing happens.
+     - billingPeriod: period how often billing happens in seconds.
      - size: allocated size for the Agreement (in MB, rounded up)
      - availableFunds: funds available for the billing of the Agreement.
      - lastPayoutDate: When was the last time Provider was payed out. Zero either means non-existing or terminated Agreement.
@@ -39,14 +39,14 @@ contract StorageManager {
         uint128 billingPrice;
         uint64 billingPeriod;
         uint256 availableFunds;
-        uint128 size;
+        uint64 size;
         uint128 lastPayoutDate;
     }
 
     // offerRegistry stores the open or closed Offer for provider.
     mapping(address => Offer) public offerRegistry;
 
-    event TotalCapacitySet(address indexed provider, uint128 capacity);
+    event TotalCapacitySet(address indexed provider, uint64 capacity);
     event BillingPlanSet(address indexed provider, uint64 period, uint128 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
 
@@ -72,11 +72,11 @@ contract StorageManager {
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
     @param capacity the amount of MB offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
-    @param billingPeriods the offered periods. Length must be equal to the lenght of billingPrices.
+    @param billingPeriods the offered periods in seconds. Length must be equal to the lenght of billingPrices.
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. When a price is 0, the matching period is not offered.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
-    function setOffer(uint128 capacity,
+    function setOffer(uint64 capacity,
         uint64[] memory billingPeriods,
         uint128[] memory billingPrices,
         bytes32[] memory message
@@ -98,7 +98,7 @@ contract StorageManager {
     @notice sets total capacity of Offer.
     @param capacity the new capacity
     */
-    function setTotalCapacity(uint128 capacity) public {
+    function setTotalCapacity(uint64 capacity) public {
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -124,7 +124,7 @@ contract StorageManager {
     - setting the price to 0 means that a particular period is not offered, which can be used to remove a period from the offer.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless.
     @param billingPeriods the offered periods. Length must be equal to billingPrices.
-    @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
+    @param billingPrices the prices for the offered periods in seconds. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered.
     */
     function setBillingPlans(uint64[] memory billingPeriods, uint128[] memory billingPrices) public {
         require(billingPeriods.length > 0, "StorageManager: Offer needs some billing plans");
@@ -154,10 +154,10 @@ contract StorageManager {
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
     @param size the size of the to-be-pinned file in MB (rounded up).
-    @param billingPeriod the chosen period for billing.
+    @param billingPeriod the chosen period for billing in seconds.
     @param agreementsReferencesToBePayedOut Agreements that are supposed to be terminated and should be payed-out and capacity freed up.
     */
-    function newAgreement(bytes32[] memory dataReference, address provider, uint128 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable {
+    function newAgreement(bytes32[] memory dataReference, address provider, uint64 size, uint64 billingPeriod, bytes32[] memory agreementsReferencesToBePayedOut) public payable {
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
         require(size > 0, "StorageManager: Size has to be bigger then 0");
 
@@ -197,7 +197,7 @@ contract StorageManager {
         }
 
         offer = offerRegistry[provider];
-        offer.utilizedCapacity = uint128(offer.utilizedCapacity.add(size));
+        offer.utilizedCapacity = uint64(offer.utilizedCapacity.add(size));
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         emit NewAgreement(
@@ -307,7 +307,7 @@ contract StorageManager {
                     agreement.lastPayoutDate = 0;
 
                     // Add back capacity
-                    offer.utilizedCapacity = uint128(offer.utilizedCapacity.sub(agreement.size));
+                    offer.utilizedCapacity = uint64(offer.utilizedCapacity.sub(agreement.size));
                     emit AgreementStopped(agreementReferences[i]);
                 } else {// Provider called this during active agreement which has still funds to run
                     agreement.lastPayoutDate = uint128(_time());
