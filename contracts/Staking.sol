@@ -1,15 +1,22 @@
 pragma solidity 0.6.2;
 
 import "./vendor/SafeMath.sol";
+import "./StorageManager.sol";
 
 contract Staking {
 
     using SafeMath for uint256;
 
+    StorageManager storageManager;
+
     mapping(address => uint256) internal amountStaked;
 
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
+
+    constructor(address _storageManager) public {
+        storageManager = StorageManager(_storageManager);
+    }
 
     function stake(bytes memory data) public payable {
         stakeFor(msg.sender, data);
@@ -21,6 +28,8 @@ contract Staking {
     }
 
     function unstake(uint256 amount, bytes memory data) public {
+        // only allow unstake if there is no utilized capacity
+        require(storageManager.hasUtilizedCapacity(msg.sender));
         amountStaked[msg.sender] = amountStaked[msg.sender].sub(amount);
         emit Unstaked(msg.sender, amount, amountStaked[msg.sender], data);
     }
