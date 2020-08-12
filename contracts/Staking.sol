@@ -11,13 +11,13 @@ contract Staking {
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
 
-    function stake(uint256 amount, bytes memory data) public payable {
-        stakeFor(msg.sender, amount, data);
+    function stake(bytes memory data) public payable {
+        stakeFor(msg.sender, data);
     }
 
-    function stakeFor(address user, uint256 amount, bytes memory data) public payable {
+    function stakeFor(address user, bytes memory data) public payable {
         amountStaked[user] = amountStaked[user].add(msg.value);
-        emit Staked(msg.sender, amount, amountStaked[user], data);
+        emit Staked(msg.sender, msg.value, amountStaked[user], data);
     }
 
     function unstake(uint256 amount, bytes memory data) public {
