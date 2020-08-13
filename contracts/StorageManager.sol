@@ -20,13 +20,13 @@ contract StorageManager is Ownable {
     Offer represents:
      - utilizedCapacity: how much is capacity is utilized in Offer.
      - totalCapacity: total amount of bytes offered.
-     - billingPlans: maps a whitelisted token to billing period to a billing price. When a price is 0, the period is not offered. Address 0 stands for the native currency
+     - billingPlansForToken: maps a whitelisted token to billing period to a billing price. When a price is 0, the period is not offered. Address 0 stands for the native currency. By convention, the 0-address stands for the native currency
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
         uint128 utilizedCapacity;
         uint128 totalCapacity;
-        mapping(address => mapping(uint64 => uint64)) billingPlans;
+        mapping(address => mapping(uint64 => uint64)) billingPlansForToken;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
 
@@ -208,7 +208,7 @@ contract StorageManager is Ownable {
             creators[0] = msg.sender;
             _payoutFunds(dataReferenceOfAgreementToPayout, creators, token, payable(provider));
         }
-        uint64 billingPrice = offer.billingPlans[token][billingPeriod];
+        uint64 billingPrice = offer.billingPlansForToken[token][billingPeriod];
         require(billingPrice != 0, "StorageManager: Billing price doesn't exist for Offer");
         // can only define agreement here, because otherwise StakeTooDeep error
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
@@ -268,7 +268,7 @@ contract StorageManager is Ownable {
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
         require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
-        require(offer.billingPlans[token][agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
+        require(offer.billingPlansForToken[token][agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
         require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) > agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
         if(token == address(0)) {
             // amount is taken from msg.value and not from function argument
@@ -444,7 +444,7 @@ contract StorageManager is Ownable {
     function _setBillingPlanForToken(Offer storage offer, address token, uint64 period, uint64 price) internal {
         require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
-        offer.billingPlans[token][period] = price;
+        offer.billingPlansForToken[token][period] = price;
         emit BillingPlanSet(msg.sender, token, period, price);
     }
 
