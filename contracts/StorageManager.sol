@@ -422,6 +422,16 @@ contract StorageManager is Ownable {
         }
     }
 
+    /**
+    @notice get the agreementReference.
+    the agreementReference consists of the hash of the dataReference, msg.sender and the tokenAdddress, to allow:
+     - multiple people to register an agreement for the same file
+     - one person to register multiple agreements for the same file, but with different tokens
+     - link the token to the agreement, such that we do the accounting properly
+    @param dataReference the dataReference of the agreement
+    @param creator the creator of the agreement
+    @param token the token, which is used as a means of payment for the agreement.
+    */
     function getAgreementReference(bytes32[] memory dataReference, address creator, address token) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(creator, dataReference, token));
     }
