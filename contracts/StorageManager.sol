@@ -195,6 +195,11 @@ contract StorageManager is Ownable {
         require(size > 0, "StorageManager: Size has to be bigger then 0");
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         require(isWhitelistedToken[token], "StorageManager: not possible to interact witht this token");
+         // Allow to enforce payout funds and close of agreements that are already expired,
+        // which should free needed capacity, if the capacity is becoming depleted.
+        if (dataReferencesOfAgreementToPayOut.length > 0) {
+            _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokenOfAgreementsToPayOut, payable(provider));
+        }
         // the agreementReference consists of the hash of the dataReference, msg.sender and the tokenAdddress, to allow:
         // - multiple people to register an agreement for the same file
         // - one person to register multiple agreements for the same file, but with different tokens
@@ -230,13 +235,6 @@ contract StorageManager is Ownable {
         // Set to current time as no payout was made yet and this information is
         // used to track spent funds.
         agreement.lastPayoutDate = uint128(_time());
-
-        // Allow to enforce payout funds and close of agreements that are already expired,
-        // which should free needed capacity, if the capacity is becoming depleted.
-        if (dataReferencesOfAgreementToPayOut.length > 0) {
-            _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokenOfAgreementsToPayOut, payable(provider));
-        }
-
         offer = offerRegistry[provider];
         offer.utilizedCapacity = uint128(offer.utilizedCapacity.add(size));
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
