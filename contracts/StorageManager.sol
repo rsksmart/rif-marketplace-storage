@@ -57,7 +57,7 @@ contract StorageManager is Ownable {
     event MessageEmitted(address indexed provider, bytes32[] message);
 
     event NewAgreement(
-        bytes32[] dataReference,	
+        bytes32 agreementReference,
         address indexed agreementCreator,
         address indexed provider,
         uint128 size,
@@ -242,7 +242,7 @@ contract StorageManager is Ownable {
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         emit NewAgreement(
-            dataReference,
+            agreementReference,
             msg.sender,
             provider,
             size,
