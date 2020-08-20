@@ -344,9 +344,10 @@ contract StorageManager is Ownable {
     function payoutFunds(
         bytes32[][] memory dataReferencesOfAgreementToPayOut,
         address[] memory creatorsOfAgreementToPayOut,
-        address tokensOfAgreementsToPayOut
+        address tokensOfAgreementsToPayOut,
+        address provider
     ) public {
-        _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, msg.sender);
+        _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
     }
 
     /**
