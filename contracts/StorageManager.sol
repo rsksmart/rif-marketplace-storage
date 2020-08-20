@@ -81,7 +81,6 @@ contract StorageManager is Ownable {
         isWhitelistedToken[token] = isWhiteListed;
     }
 
-
     /**
     >> FOR PROVIDER
     @notice set the totalCapacity and billingPlans of a Offer.
