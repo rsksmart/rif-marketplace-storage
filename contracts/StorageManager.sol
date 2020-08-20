@@ -168,6 +168,7 @@ contract StorageManager is Ownable {
      - The to-be-pinned data reference's size in bytes (rounded up) must be equal in size to param size.
      - Provider can reject to pin data reference when it exceeds specified size.
      - The ownership of Agreement is enforced with agreementReference structure which is calculated as: hash(msg.sender, dataReference)
+     - if the token is not the native currency, then the contract must be first be given allowance to transfer tokens in it's posession.
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
     @param size the size of the to-be-pinned file in bytes (rounded up).
@@ -258,6 +259,7 @@ contract StorageManager is Ownable {
         - depositing funds to Agreement that is linked to terminated Offer is not possible
         - depositing funds to Agreement that already is expired (eq. ran out of funds at some point) is not possible.
           Call NewAgreement instead. The data needs to be re-provided though.
+        - if the token is not the native currency, then the contract must be first be given allowance to transfer tokens in it's posession.
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
@@ -287,6 +289,7 @@ contract StorageManager is Ownable {
     @dev
         - if amount is zero then all withdrawable funds are transferred (eq. all available funds minus funds for still non-payed out periods and current period)
         - if Agreement is terminated Consumer can withdraw all remaining funds
+        - if the token is not the native currency, then the contract must be first be given allowance to transfer tokens in it's posession.
     @param dataReference the data reference of agreement to be funds withdrawn from
     @param provider the address of the provider of the Offer.
     @param tokens the tokens in which to withdraw. By convention, address(0) is the native currency.
