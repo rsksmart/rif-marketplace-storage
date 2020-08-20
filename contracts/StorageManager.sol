@@ -63,7 +63,7 @@ contract StorageManager is Ownable {
         uint128 size,
         uint64 billingPeriod,
         uint64 billingPrice,
-        uint256 availableFunds	
+        uint256 availableFunds
     );
     event AgreementFundsDeposited(bytes32 indexed agreementReference, uint256 amount, address indexed token);
     event AgreementFundsWithdrawn(bytes32 indexed agreementReference, uint256 amount, address indexed token);
