@@ -324,7 +324,7 @@ contract StorageManager is Ownable {
                 (bool success,) = msg.sender.call.value(amount)("");
                 require(success, "Transfer failed.");
             } else {
-                require(ERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+                require(ERC20(token).transfer(msg.sender, amount), "StorageManager: not allowed to deposit tokens from token contract");
             }
             emit AgreementFundsWithdrawn(agreementReference, amount, token);
         }
