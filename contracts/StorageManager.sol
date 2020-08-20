@@ -20,7 +20,7 @@ contract StorageManager is Ownable {
     Offer represents:
      - utilizedCapacity: how much is capacity is utilized in Offer.
      - totalCapacity: total amount of bytes offered.
-     - billingPlansForToken: maps a whitelisted token to billing period to a billing price. When a price is 0, the period is not offered. Address 0 stands for the native currency. By convention, the 0-address stands for the native currency
+     - billingPlansForToken: maps a whitelisted token to billing period to a billing price. When a price is 0, the period is not offered. By convention, the 0-address stands for the native currency
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
@@ -87,7 +87,7 @@ contract StorageManager is Ownable {
     @dev
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
-    - only whitelisted tokens are allowed to make a token for
+    - only whitelisted tokens are allowed to make an offer for
     - if there are two tokens, and two billingPrice/periods pairs per token, then boundaries[0] == 1. 
       This makes the first two billingPeriod/prices pairs to apply to the first token ([tokens[0]]) and the second pairs to the second token.
     @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
