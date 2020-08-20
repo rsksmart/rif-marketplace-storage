@@ -199,7 +199,6 @@ contract StorageManager is Ownable {
         // - one person to register multiple agreements for the same file, but with different tokens
         // - link the token to the agreement, such that we do the accounting properly
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
-       // Agreement storage agreement = offer.agreementRegistry[agreementReference];
         // If the current agreement is still running (but for example already expired, eq. ran out of the funds in past)
         // we need to payout all the funds. AgreementStopped can be emitted as part of this call if no
         if(offer.agreementRegistry[agreementReference].lastPayoutDate != 0){
