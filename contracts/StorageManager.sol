@@ -90,6 +90,7 @@ contract StorageManager is Ownable {
     - only whitelisted tokens are allowed to make an offer for
     - if there are two tokens, and two billingPrice/periods pairs per token, then boundaries[0] == 1. 
       This makes the first two billingPeriod/prices pairs to apply to the first token ([tokens[0]]) and the second pairs to the second token.
+    - make sure that the length of billingPeriods and billingPrices is of equal length. If billingPeriods is longer than prices => array index out of bounds error. If prices longer than period => the prices in higher indeces won't be considered
     @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the length of billingPrices. The first index of the multi dem array corresponds with the address in tokens at the same index
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. The first index of the multi dem array corresponds with the address in tokens at the same index
@@ -139,7 +140,9 @@ contract StorageManager is Ownable {
     @notice set the billing plans for an Offer.
     @dev
     - setting the price to 0 means that a particular period is not offered, which can be used to remove a period from the offer.
-    - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless.
+    - make sure that any period * prices does not cause an overflow, as this can never be accepted and hence is pointless.
+    - the length of tokens array must always be one shorter than the length of the boundaries array (otherwise you get an array index out of bounds error)
+    - make sure that the length of billingPeriods and billingPrices is of equal length. If billingPeriods is longer than prices => array index out of bounds error. If prices longer than period => the prices in higher indeces won't be considered
     @param billingPeriods the offered periods. Length must be equal to billingPrices. The first index of the multi dem array corresponds with the address in tokens at the same index
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered. The first index of the multi dem array corresponds with the address in tokens at the same index
     */
@@ -355,6 +358,7 @@ contract StorageManager is Ownable {
     @dev
     - the billingPeriods and billingPrices hold the period/price pair for all tokens. 
     - the length of tokens array must always be one shorter than the length of the boundaries array (otherwise you get an array index out of bounds error)
+    - make sure that the length of billingPeriods and billingPrices is of equal length. If billingPeriods is longer than prices => array index out of bounds error. If prices longer than period => the prices in higher indeces won't be considered
     @param offer the offer for which the billingPlan is set
     @param billingPeriods the offered periods. Length must be equal to the length of billingPrices. The first index of the multi dem array corresponds with the address in tokens at the same index
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. 0 means that the particular period is not offered. The first index of the multi dem array corresponds with the address in tokens at the same index
