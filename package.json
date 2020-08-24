@@ -49,7 +49,7 @@
     "truffle": "^5.1.37",
     "truffle-security": "^1.7.3",
     "typechain": "^2.0.0",
-    "typescript": "^3.9.7",
+    "typescript": "^4.0.2",
     "web3-utils": "^1.2.11"
   },
   "engines": {
