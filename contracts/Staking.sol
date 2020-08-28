@@ -71,7 +71,7 @@ contract Staking {
      */
     function unstake(uint256 amount, bytes memory data) public {
         // only allow unstake if there is no utilized capacity
-        require(storageManager.hasUtilizedCapacity(msg.sender));
+        require(!storageManager.hasUtilizedCapacity(msg.sender), "Staking: must have no utilized capacity in StorageManager");
         amountStaked[msg.sender] = amountStaked[msg.sender].sub(amount);
         _totalStaked = _totalStaked.sub(amount);
         if(contractUsesNativeToken()) {
