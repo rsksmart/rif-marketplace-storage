@@ -4,7 +4,7 @@ const {
     balance,
     constants
   } = require('@openzeppelin/test-helpers')
-const { toBN } = require('web3-utils')
+const { toBN, asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
 const Staking = artifacts.require('Staking')
 const StorageManager = artifacts.require('StorageManager')
@@ -131,19 +131,143 @@ contract('Staking', ([staker, stakerFriend, randomPerson]) => {
 
     describe('unstakeNative', () => {
       it('should not unstake when storage offer active', async () => {
-
+        let toStake = 5000
+        // set StorageOffer by staker
+        await storageManager.setOffer(1000, [10, 100], [10, 80], [padRight(asciiToHex('testMessage'))], { from: staker })
+        // newAgreement by randomPerson
+        await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, [], { from: randomPerson, value: 2000 })
+        // stake
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        // attempt to unstake
+        await expectRevert(stakingNative.unstake(toStake, constants.ZERO_BYTES32, { from: staker }), "Staking: must have no utilized capacity in StorageManager")
       })
 
       it('should process an unstake when no active offer', async () => {
-
+        let toStake = 5000
+        const initialBalance = await balance.current(staker)
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        await stakingNative.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        const nextBalance = await balance.current(staker)
+        // final balance equal to initial balance
+        expect(initialBalance).to.eql(nextBalance)
       })
     })
 
-    describe('totalStaked', () => {
+    describe('unstakeToken', () => {
+      it('should not unstake when storage offer active', async () => {
+        let toStake = 5000
+        // set StorageOffer by staker
+        await storageManager.setOffer(1000, [10, 100], [10, 80], [padRight(asciiToHex('testMessage'))], { from: staker })
+        // newAgreement by randomPerson
+        await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, [], { from: randomPerson, value: 2000 })
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        // stake
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        // attempt to unstake
+        await expectRevert(stakingToken.unstake(toStake, constants.ZERO_BYTES32, { from: staker }), "Staking: must have no utilized capacity in StorageManager")
+      })
 
+      it('should process an unstake when no active offer', async () => {
+        let toStake = 5000
+        const initialBalance = await token.balanceOf(staker)
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        await stakingToken.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        const nextBalance = await token.balanceOf(staker)
+        // final balance equal to initial balance
+        expect(initialBalance).to.eql(nextBalance)
+      })
     })
 
-    describe('totalStakedFor', () => {
+    describe('totalStakedNative', () => {
+      it('should return total staked when staked 0', async () => {
+        expect(toBN(await stakingNative.totalStaked())).to.be.bignumber.equal(toBN(0))
+      })
+      it('should return total staked when staked', async () => {
+        let toStake = 5000
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        expect(toBN(await stakingNative.totalStaked())).to.be.bignumber.equal(toBN(toStake))
+      })
+      it('should return total staked when staked and unstaked', async () => {
+        let toStake = 5000
+        let toUnstake = 2500
+        //stake
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        // unstake
+        await stakingNative.unstake(toUnstake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingNative.totalStaked())).to.be.bignumber.equal(toBN(toStake - toUnstake))
+      })
+    })
 
+    describe('totalStakedToken', () => {
+      it('should return total staked when staked 0', async () => {
+        expect(toBN(await stakingToken.totalStaked())).to.be.bignumber.equal(toBN(0))
+      })
+      it('should return total staked when staked', async () => {
+        let toStake = 5000
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        //stake
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingToken.totalStaked())).to.be.bignumber.equal(toBN(toStake))
+      })
+      it('should return total staked when staked and unstaked', async () => {
+        let toStake = 5000
+        let toUnstake = 2500
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        //stake
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        // unstake
+        await stakingToken.unstake(toUnstake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingToken.totalStaked())).to.be.bignumber.equal(toBN(toStake - toUnstake))
+      })
+    })
+
+    describe('totalStakedForNative', () => {
+      it('should return total staked when staked 0', async () => {
+        expect(toBN(await stakingNative.totalStakedFor(staker))).to.be.bignumber.equal(toBN(0))
+      })
+      it('should return total staked when staked', async () => {
+        let toStake = 5000
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        expect(toBN(await stakingNative.totalStakedFor(staker))).to.be.bignumber.equal(toBN(toStake))
+      })
+      it('should return total staked when staked and unstaked', async () => {
+        let toStake = 5000
+        let toUnstake = 2500
+        //stake
+        await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+        // unstake
+        await stakingNative.unstake(toUnstake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingNative.totalStakedFor(staker))).to.be.bignumber.equal(toBN(toStake - toUnstake))
+      })
+    })
+
+    describe('totalStakedForToken', () => {
+      it('should return total staked when staked 0', async () => {
+        expect(toBN(await stakingToken.totalStakedFor(staker))).to.be.bignumber.equal(toBN(0))
+      })
+      it('should return total staked when staked', async () => {
+        let toStake = 5000
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        //stake
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingToken.totalStakedFor(staker))).to.be.bignumber.equal(toBN(toStake))
+      })
+      it('should return total staked when staked and unstaked', async () => {
+        let toStake = 5000
+        let toUnstake = 2500
+        // approve
+        await token.approve(stakingToken.address, toStake, {from: staker})
+        //stake
+        await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        // unstake
+        await stakingToken.unstake(toUnstake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        expect(toBN(await stakingToken.totalStakedFor(staker))).to.be.bignumber.equal(toBN(toStake - toUnstake))
+      })
     })
 })
