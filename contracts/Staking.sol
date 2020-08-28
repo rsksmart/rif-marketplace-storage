@@ -1,6 +1,5 @@
 pragma solidity 0.6.2;
 
-import "./vendor/SafeMath.sol";
 import "./StorageManager.sol";
 
 contract Staking {
@@ -10,6 +9,7 @@ contract Staking {
     StorageManager storageManager;
 
     mapping(address => uint256) internal amountStaked;
+    uint256 internal _totalStaked;
 
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
@@ -24,6 +24,7 @@ contract Staking {
 
     function stakeFor(address user, bytes memory data) public payable {
         amountStaked[user] = amountStaked[user].add(msg.value);
+        _totalStaked = _totalStaked.add(msg.value);
         emit Staked(msg.sender, msg.value, amountStaked[user], data);
     }
 
@@ -31,11 +32,12 @@ contract Staking {
         // only allow unstake if there is no utilized capacity
         require(storageManager.hasUtilizedCapacity(msg.sender));
         amountStaked[msg.sender] = amountStaked[msg.sender].sub(amount);
+        _totalStaked = _totalStaked.sub(amount);
         emit Unstaked(msg.sender, amount, amountStaked[msg.sender], data);
     }
 
     function totalStaked() public view returns (uint256) {
-        return totalStakedFor(msg.sender);
+        return _totalStaked;
     }
 
     function totalStakedFor(address addr) public view returns (uint256) {
