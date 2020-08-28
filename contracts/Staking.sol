@@ -44,4 +44,8 @@ contract Staking {
         return amountStaked[addr];
     }
 
+    function supportsHistory() public pure returns (bool) {
+        return false;
+    }
+
 }
