@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-marketplace-storage",
-  "version": "0.1.0-dev.0",
+  "version": "0.1.0-dev.1",
   "description": "Contracts for incentivized pinning",
   "keywords": [
     "RIF",
@@ -38,6 +38,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@openzeppelin/contracts": "^3.1.0",
     "@openzeppelin/test-helpers": "^0.5.6",
     "@typechain/ethers-v4": "^1.0.0",
     "@typechain/truffle-v4": "^2.0.3",
