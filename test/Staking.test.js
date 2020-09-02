@@ -11,15 +11,20 @@ const StorageManager = artifacts.require('StorageManager')
 const ERC20 = artifacts.require('MockERC20')
 
 contract('Staking', ([staker, stakerFriend, randomPerson]) => {
+    let token
+    let storageManager
+    let stakingNative
+    let stakingToken
+
     beforeEach(async function () {
-        token = await ERC20.new(100000, { from: randomPerson });
         storageManager = await StorageManager.new({ from: randomPerson })
+        token = await ERC20.new('myToken', 'mT', randomPerson, 100000, { from: randomPerson });
         stakingNative = await Staking.new(storageManager.address, constants.ZERO_ADDRESS, { from: randomPerson })
         stakingToken = await Staking.new(storageManager.address, token.address, {from: randomPerson })
 
         // distribute tokens
-        token.transfer(staker, 10000, { from: randomPerson })
-        token.transfer(stakerFriend, 10000, { from: randomPerson })
+        await token.transfer(staker, 10000, { from: randomPerson })
+        await token.transfer(stakerFriend, 10000, { from: randomPerson })
     })
 
     describe('stakeNative', () => {
@@ -36,7 +41,7 @@ contract('Staking', ([staker, stakerFriend, randomPerson]) => {
         expectEvent(receipt, 'Staked', {
           user: sender,
           amount: '5000',
-          total: '5000', 
+          total: '5000',
           data: constants.ZERO_BYTES32
         })
         // should update staked value
@@ -44,7 +49,7 @@ contract('Staking', ([staker, stakerFriend, randomPerson]) => {
         // should update initial balance
         const nextBalance = await balance.current(staker)
         expect(initialBalance.sub(toBN(5000))).to.eql(nextBalance)
-      })     
+      })
     })
 
     describe('stakeToken', () => {
@@ -146,8 +151,15 @@ contract('Staking', ([staker, stakerFriend, randomPerson]) => {
         let toStake = 5000
         const initialBalance = await balance.current(staker)
         await stakingNative.stake(0, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
-        await stakingNative.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        const receipt = await stakingNative.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
         const nextBalance = await balance.current(staker)
+        // should emit event
+        expectEvent(receipt, 'Unstaked', {
+            user: staker,
+            amount: '5000',
+            total: '0',
+            data: constants.ZERO_BYTES32
+        })
         // final balance equal to initial balance
         expect(initialBalance).to.eql(nextBalance)
       })
@@ -174,8 +186,15 @@ contract('Staking', ([staker, stakerFriend, randomPerson]) => {
         // approve
         await token.approve(stakingToken.address, toStake, {from: staker})
         await stakingToken.stake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
-        await stakingToken.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
+        const receipt = await stakingToken.unstake(toStake, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
         const nextBalance = await token.balanceOf(staker)
+        // should emit event
+        expectEvent(receipt, 'Unstaked', {
+            user: staker,
+            amount: '5000',
+            total: '0',
+            data: constants.ZERO_BYTES32
+        })
         // final balance equal to initial balance
         expect(initialBalance).to.eql(nextBalance)
       })

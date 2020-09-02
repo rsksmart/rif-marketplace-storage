@@ -33,8 +33,10 @@
   "scripts": {
     "test": "truffle test",
     "lint": "tasegir lint",
+    "compile": "truffle  compile",
+    "build": "truffle  build",
     "release": "tasegir release --no-docs --no-compile --no-test --no-build",
-    "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json"
+    "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json && typechain --target=web3-v1 build/contracts/Staking.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/Staking.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/Staking.json && typechain --target=ethers-v4 build/contracts/Staking.json"
   },
   "dependencies": {},
   "devDependencies": {
