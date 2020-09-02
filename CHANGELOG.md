@@ -55,5 +55,3 @@ First dev release. Includes basically working contract shallowly tested.
 * remove accept request flow ([#22](https://github.com/rsksmart/rif-marketplace-storage/issues/22)) ([a4e0bc2](https://github.com/rsksmart/rif-marketplace-storage/commit/a4e0bc2))
 * support for generated types ([#52](https://github.com/rsksmart/rif-marketplace-storage/issues/52)) ([81827a4](https://github.com/rsksmart/rif-marketplace-storage/commit/81827a4))
 
-
-
