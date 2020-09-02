@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-import "./StorageManager.sol";
+import "../StorageManager.sol";
 
 contract TestStorageManager is StorageManager {
     uint time;
