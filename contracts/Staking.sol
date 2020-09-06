@@ -2,35 +2,44 @@ pragma solidity 0.6.2;
 
 import "./StorageManager.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title staking
 /// @author see ERC900 proposal
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
 /// @notice implements the ERC900 interface, with some small modifications. The contract also handles native tokens.
-contract Staking {
+contract Staking is Ownable {
 
     using SafeMath for uint256;
 
     StorageManager storageManager;
-    // amount of token staked per address
-    mapping(address => uint256) internal amountStaked;
-    // total amount of token staked per address
-    uint256 internal _totalStaked;
+    // amount of tokens per token staked per address [account -> (tokenAddress -> amount)]
+    mapping(address => mapping(address => uint256)) internal amountStaked;
+    // total amount staked per token
+    mapping(address => uint256) internal _totalStaked;
     // the ERC20 token of the contract. By convention, address(0) is the native currency
     // multicurrency is achieved by deploying multiple contract instances
-    address internal _token;
+    // maps the tokenAddresses which can be used with this contract. By convention, address(0) is the native token.
+    mapping(address => bool) public isWhitelistedToken;
 
-    event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
-    event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
+    event Staked(address indexed user, uint256 amount, uint256 total, address token, bytes data);
+    event Unstaked(address indexed user, uint256 amount, uint256 total, address token, bytes data);
 
     /**
     @notice constructor of the contract
     @param _storageManager the storageManager which uses this staking contract
-    @param stakingToken the address of the token of this contract. By convention, address(0) is the native currency
     */
-    constructor(address _storageManager, address stakingToken) public {
+    constructor(address _storageManager) public {
         storageManager = StorageManager(_storageManager);
-        _token = stakingToken;
+    }
+
+    /**
+    @notice whitelist a token or remove the token from whitelist
+    @param token the token from whom you want to set the whitelisted
+    @param isWhiteListed whether you want to whitelist the token or put it from the whitelist.
+    */
+    function setWhitelistedTokens (address token, bool isWhiteListed) public onlyOwner {
+        isWhitelistedToken[token] = isWhiteListed;
     }
 
     /**
@@ -38,10 +47,11 @@ contract Staking {
     @dev note that when you stake a non-native token, the caller must have given approval to the contract to transact tokens
     if the caller is a contract, it must implement the functionality to call unstake
     @param amount the amount you want to stake. Can be left blank when you are staking the native currency
+    @param token Token address
     @param data should be disregarded for the current deployment
     */
-    function stake(uint256 amount, bytes memory data) public payable {
-        stakeFor(amount, msg.sender, data);
+    function stake(uint256 amount, address token, bytes memory data) public payable {
+        stakeFor(amount, msg.sender, token, data);
     }
 
     /**
@@ -50,52 +60,63 @@ contract Staking {
     if you are staking for a contract, the contract must be able to call unstake
     @param amount the amount you want to stake. Can be left blank when you are staking the native currency
     @param user the user for whom you are staking
+    @param tokenAddress Token address
     @param data should be disregarded for the current deployment
      */
-    function stakeFor(uint256 amount, address user, bytes memory data) public payable {
+    function stakeFor(uint256 amount, address user, address tokenAddress, bytes memory data) public payable {
         // disregard passed-in amount
-        if(contractUsesNativeToken()) {
+        if(_isNativeToken(tokenAddress)) {
             amount = msg.value;
+            tokenAddress = address(0);
         } else {
-            require(ERC20(_token).transferFrom(msg.sender, address(this), amount), "Staking: could not transfer tokens");
+            require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
+            require(ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Staking: could not transfer tokens");
         }
-        amountStaked[user] = amountStaked[user].add(amount);
-        _totalStaked = _totalStaked.add(amount);
-        emit Staked(msg.sender, amount, amountStaked[user], data);
+        amountStaked[user][tokenAddress] = amountStaked[user][tokenAddress].add(amount);
+        _totalStaked[tokenAddress] = _totalStaked[tokenAddress].add(amount);
+        emit Staked(msg.sender, amount, amountStaked[user][tokenAddress], tokenAddress, data);
     }
 
     /**
     @notice unstake tokens which where previously staked via this function. Only possible when you don't have any active storage agreements
     @param amount the total amount of tokens to unstake
+    @param tokenAddress Token address
     @param data should be disregarded for the current deployment
      */
-    function unstake(uint256 amount, bytes memory data) public {
+    function unstake(uint256 amount, address tokenAddress, bytes memory data) public {
         // only allow unstake if there is no utilized capacity
         require(!storageManager.hasUtilizedCapacity(msg.sender), "Staking: must have no utilized capacity in StorageManager");
-        amountStaked[msg.sender] = amountStaked[msg.sender].sub(amount);
-        _totalStaked = _totalStaked.sub(amount);
-        if(contractUsesNativeToken()) {
+        if(_isNativeToken(tokenAddress)) {
             (bool success,) = msg.sender.call.value(amount)("");
             require(success, "Transfer failed.");
         } else {
-            ERC20(_token).transfer(msg.sender, amount);
+            require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
+            ERC20(tokenAddress).transfer(msg.sender, amount);
         }
-
-        emit Unstaked(msg.sender, amount, amountStaked[msg.sender], data);
+        amountStaked[msg.sender][tokenAddress] = amountStaked[msg.sender][tokenAddress].sub(amount);
+        _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
+        emit Unstaked(msg.sender, amount, amountStaked[msg.sender][tokenAddress], tokenAddress, data);
     }
 
     /**
-    @notice returns the total amount staked for this contract
+    @notice return true if token whitelisted
      */
-    function totalStaked() public view returns (uint256) {
-        return _totalStaked;
+    function isInWhiteList (address token) public view returns (bool) {
+        return isWhitelistedToken[token];
     }
 
     /**
-    @notice returns the amount staked for the user
+    @notice returns the amount staked for the specific token
+    */
+    function totalStaked (address token) public view returns (uint256) {
+        return _totalStaked[token];
+    }
+
+    /**
+    @notice returns the amount staked for the specific user and token
      */
-    function totalStakedFor(address user) public view returns (uint256) {
-        return amountStaked[user];
+    function totalStakedFor(address user, address token) public view returns (uint256) {
+        return amountStaked[user][token];
     }
 
     /**
@@ -106,9 +127,9 @@ contract Staking {
     }
 
     /**
-    @notice if the contract uses the native token or not
+    @notice if use a native token
      */
-    function contractUsesNativeToken() public view returns (bool) {
-        return _token == address(0);
+    function _isNativeToken(address token) private pure returns (bool) {
+        return token == address(0);
     }
 }
