@@ -1,7 +1,7 @@
 pragma solidity 0.6.2;
 
 import "./StorageManager.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title staking
@@ -12,9 +12,9 @@ contract Staking is Ownable {
 
     using SafeMath for uint256;
 
-    StorageManager storageManager;
+    StorageManager public storageManager;
     // amount of tokens per token staked per address [account -> (tokenAddress -> amount)]
-    mapping(address => mapping(address => uint256)) internal amountStaked;
+    mapping(address => mapping(address => uint256)) internal _amountStaked;
     // total amount staked per token
     mapping(address => uint256) internal _totalStaked;
     // the ERC20 token of the contract. By convention, address(0) is the native currency
@@ -31,6 +31,14 @@ contract Staking is Ownable {
     */
     constructor(address _storageManager) public {
         storageManager = StorageManager(_storageManager);
+    }
+
+    /**
+    @notice set Storage Manager contract
+    @param _storageContract the storageManager which uses this staking contract
+    */
+    function setStorageManager(address _storageContract) public onlyOwner {
+        storageManager = StorageManager(_storageContract);
     }
 
     /**
@@ -64,17 +72,17 @@ contract Staking is Ownable {
     @param data should be disregarded for the current deployment
      */
     function stakeFor(uint256 amount, address user, address tokenAddress, bytes memory data) public payable {
+        require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
         // disregard passed-in amount
         if(_isNativeToken(tokenAddress)) {
             amount = msg.value;
             tokenAddress = address(0);
         } else {
-            require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
-            require(ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Staking: could not transfer tokens");
+            require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Staking: could not transfer tokens");
         }
-        amountStaked[user][tokenAddress] = amountStaked[user][tokenAddress].add(amount);
+        _amountStaked[user][tokenAddress] = _amountStaked[user][tokenAddress].add(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].add(amount);
-        emit Staked(msg.sender, amount, amountStaked[user][tokenAddress], tokenAddress, data);
+        emit Staked(msg.sender, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
     }
 
     /**
@@ -84,18 +92,18 @@ contract Staking is Ownable {
     @param data should be disregarded for the current deployment
      */
     function unstake(uint256 amount, address tokenAddress, bytes memory data) public {
+        require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
         // only allow unstake if there is no utilized capacity
         require(!storageManager.hasUtilizedCapacity(msg.sender), "Staking: must have no utilized capacity in StorageManager");
         if(_isNativeToken(tokenAddress)) {
             (bool success,) = msg.sender.call.value(amount)("");
             require(success, "Transfer failed.");
         } else {
-            require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
-            ERC20(tokenAddress).transfer(msg.sender, amount);
+            IERC20(tokenAddress).transfer(msg.sender, amount);
         }
-        amountStaked[msg.sender][tokenAddress] = amountStaked[msg.sender][tokenAddress].sub(amount);
+        _amountStaked[msg.sender][tokenAddress] = _amountStaked[msg.sender][tokenAddress].sub(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
-        emit Unstaked(msg.sender, amount, amountStaked[msg.sender][tokenAddress], tokenAddress, data);
+        emit Unstaked(msg.sender, amount, _amountStaked[msg.sender][tokenAddress], tokenAddress, data);
     }
 
     /**
@@ -116,7 +124,7 @@ contract Staking is Ownable {
     @notice returns the amount staked for the specific user and token
      */
     function totalStakedFor(address user, address token) public view returns (uint256) {
-        return amountStaked[user][token];
+        return _amountStaked[user][token];
     }
 
     /**
