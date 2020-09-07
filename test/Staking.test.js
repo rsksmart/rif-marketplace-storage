@@ -42,6 +42,12 @@ contract('Staking', ([staker, randomPerson]) => {
       const isWhiteListed = await staking.isInWhiteList(token.address)
       expect(isWhiteListed).to.eql(false)
     })
+    it('owner should be able to white list native token', async () => {
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, false, { from: randomPerson })
+      expect(await staking.isInWhiteList(constants.ZERO_ADDRESS)).to.eql(false)
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
+      expect(await staking.isInWhiteList(constants.ZERO_ADDRESS)).to.eql(true)
+    })
   })
 
   describe('stakeNative', () => {
@@ -67,6 +73,23 @@ contract('Staking', ([staker, randomPerson]) => {
       // should update initial balance
       const nextBalance = await balance.current(staker)
       expect(initialBalance.sub(toBN(5000))).to.eql(nextBalance)
+    })
+    it('should throw if native token not whitelisted', async () => {
+      const sender = staker
+      const toStake = 5000
+      // track balance
+      const initialBalance = await balance.current(staker)
+      // should start at 0
+      expect((await staking.totalStakedFor(sender, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
+      // Black list token
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, false, { from: randomPerson })
+      // stake
+      await expectRevert(staking.stake(0, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: sender, value: toStake, gasPrice: 0 }), 'Staking: not possible to interact with this token')
+      // should not update staked value
+      expect((await staking.totalStakedFor(sender, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
+      // should not update initial balance
+      const nextBalance = await balance.current(staker)
+      expect(initialBalance).to.eql(nextBalance)
     })
   })
 
@@ -140,6 +163,24 @@ contract('Staking', ([staker, randomPerson]) => {
       const nextBalance = await balance.current(staker)
       expect(initialBalance.sub(toBN(5000))).to.eql(nextBalance)
     })
+    it('should throw if token not whitelisted', async () => {
+      const stakeFor = staker
+      const sender = staker
+      const toStake = 5000
+      // track balance
+      const initialBalance = await balance.current(staker)
+      // should start at 0
+      expect((await staking.totalStakedFor(stakeFor, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
+      // Black list token
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, false, { from: randomPerson })
+      // stake
+      await expectRevert(staking.stakeFor(0, stakeFor, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: sender, value: toStake, gasPrice: 0 }), 'Staking: not possible to interact with this token')
+      // should not update staked value
+      expect((await staking.totalStakedFor(stakeFor, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
+      // should not update initial balance
+      const nextBalance = await balance.current(staker)
+      expect(initialBalance).to.eql(nextBalance)
+    })
   })
 
   describe('stakeForToken', () => {
@@ -176,13 +217,13 @@ contract('Staking', ([staker, randomPerson]) => {
       // track balance
       const initialBalance = await token.balanceOf(staker)
       // should start at 0
-      expect((await staking.totalStakedFor(stakeFor, token.address)).toNumber()).to.eql(0)
+      expect((await staking.totalStakedFor(stakeFor, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
       // Black list token
-      await staking.setWhitelistedTokens(token.address, false, { from: randomPerson })
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, false, { from: randomPerson })
       // stake
-      await expectRevert(staking.stakeFor(toStake, stakeFor, token.address, constants.ZERO_BYTES32, { from: sender, gasPrice: 0 }), 'Staking: not possible to interact with this token')
+      await expectRevert(staking.stakeFor(toStake, stakeFor, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: sender, gasPrice: 0 }), 'Staking: not possible to interact with this token')
       // should not update staked value
-      expect((await staking.totalStakedFor(stakeFor, token.address)).toNumber()).to.eql(0)
+      expect((await staking.totalStakedFor(stakeFor, constants.ZERO_ADDRESS)).toNumber()).to.eql(0)
       // should not update initial balance
       const nextBalance = await token.balanceOf(staker)
       expect(initialBalance).to.eql(nextBalance)
@@ -201,7 +242,6 @@ contract('Staking', ([staker, randomPerson]) => {
       // attempt to unstake
       await expectRevert(staking.unstake(toStake, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker }), 'Staking: must have no utilized capacity in StorageManager')
     })
-
     it('should process an unstake when no active offer', async () => {
       const toStake = 5000
       const initialBalance = await balance.current(staker)
@@ -219,6 +259,17 @@ contract('Staking', ([staker, randomPerson]) => {
       // final balance equal to initial balance
       expect(initialBalance).to.eql(nextBalance)
     })
+    it('should throw when token black listed', async () => {
+      const toStake = 5000
+      const initialBalance = await balance.current(staker)
+      await staking.stake(0, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
+      // Blacklist token
+      await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, false, { from: randomPerson })
+      await expectRevert(staking.unstake(toStake, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 }), 'Staking: not possible to interact with this token')
+      const nextBalance = await balance.current(staker)
+      // final balance equal to initial balance
+      expect(initialBalance.toString()).to.eql(nextBalance.add(toBN(toStake)).toString())
+    })
   })
 
   describe('unstakeToken', () => {
@@ -235,7 +286,6 @@ contract('Staking', ([staker, randomPerson]) => {
       // attempt to unstake
       await expectRevert(staking.unstake(toStake, token.address, constants.ZERO_BYTES32, { from: staker }), 'Staking: must have no utilized capacity in StorageManager')
     })
-
     it('should process an unstake when no active offer', async () => {
       const toStake = 5000
       const initialBalance = await token.balanceOf(staker)
@@ -255,7 +305,6 @@ contract('Staking', ([staker, randomPerson]) => {
       // final balance equal to initial balance
       expect(initialBalance).to.eql(nextBalance)
     })
-
     it('should throw when token black listed', async () => {
       const toStake = 5000
       const initialBalance = await token.balanceOf(staker)
