@@ -87,6 +87,8 @@ contract Staking is Ownable {
 
     /**
     @notice unstake tokens which where previously staked via this function. Only possible when you don't have any active storage agreements
+    @dev
+     - if sender does not have nothing staked, the transaction will be reverted with "substraction overflow" error
     @param amount the total amount of tokens to unstake
     @param tokenAddress Token address
     @param data should be disregarded for the current deployment
