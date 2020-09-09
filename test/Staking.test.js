@@ -242,6 +242,14 @@ contract('Staking', ([staker, randomPerson]) => {
       // attempt to unstake
       await expectRevert(staking.unstake(toStake, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker }), 'Staking: must have no utilized capacity in StorageManager')
     })
+
+    it('should not unstake when nothing was staked before', async () => {
+      // somebody else staked before, so funds are placed in the contract
+      await staking.stake(0, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: randomPerson, value: 5000, gasPrice: 0 })
+
+      await expectRevert(staking.unstake(3000, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker }), 'SafeMath: subtraction overflow')
+    })
+
     it('should process an unstake when no active offer', async () => {
       const toStake = 5000
       const initialBalance = await balance.current(staker)
@@ -259,6 +267,7 @@ contract('Staking', ([staker, randomPerson]) => {
       // final balance equal to initial balance
       expect(initialBalance).to.eql(nextBalance)
     })
+
     it('should throw when token black listed', async () => {
       const toStake = 5000
       const initialBalance = await balance.current(staker)
@@ -285,6 +294,13 @@ contract('Staking', ([staker, randomPerson]) => {
       await staking.stake(toStake, token.address, constants.ZERO_BYTES32, { from: staker, gasPrice: 0 })
       // attempt to unstake
       await expectRevert(staking.unstake(toStake, token.address, constants.ZERO_BYTES32, { from: staker }), 'Staking: must have no utilized capacity in StorageManager')
+    })
+    it('should not unstake when nothing was staked before', async () => {
+      // somebody else staked before, so funds are placed in the contract
+      await token.approve(staking.address, 5000, { from: randomPerson })
+      await staking.stake(5000, token.address, constants.ZERO_BYTES32, { from: randomPerson, gasPrice: 0 })
+
+      await expectRevert(staking.unstake(3000, token.address, constants.ZERO_BYTES32, { from: staker }), 'SafeMath: subtraction overflow')
     })
     it('should process an unstake when no active offer', async () => {
       const toStake = 5000
