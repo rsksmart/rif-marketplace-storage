@@ -1,11 +1,14 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
 const {
   expectEvent,
-  expectRevert
+  expectRevert,
+  constants
 } = require('@openzeppelin/test-helpers')
 const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
+
 const StorageManager = artifacts.require('TestStorageManager')
+const ERC20 = artifacts.require('MockERC20')
 
 function getAgreementReference (receipt) {
   const newAgreementEvent = receipt.logs.find(e => e.event === 'NewAgreement')
@@ -14,10 +17,18 @@ function getAgreementReference (receipt) {
 
 contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   let storageManager
+  let token
   const cid = [asciiToHex('/ipfs/QmSomeHash')]
 
   beforeEach(async function () {
     storageManager = await StorageManager.new({ from: randomPerson })
+    token = token = await ERC20.new('myToken', 'mT', randomPerson, 100000, { from: randomPerson })
+
+    await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
+    await storageManager.setWhitelistedTokens(token.address, true, { from: randomPerson })
+
+    await token.transfer(Consumer, 10000, { from: randomPerson })
+
     await storageManager.setTime(100)
   })
 
@@ -28,18 +39,32 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   describe('setOffer', () => {
     it('should create new Offer for valid inputs', async () => {
       const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
-      const receipt = await storageManager.setOffer(1000, [10, 100], [10, 80], msg, { from: Provider })
+      const receipt = await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider })
       expectEvent(receipt, 'TotalCapacitySet', {
         provider: Provider,
         capacity: '1000'
       })
       expectEvent(receipt, 'BillingPlanSet', {
         provider: Provider,
+        token: constants.ZERO_ADDRESS,
         period: '10',
         price: '10'
       })
       expectEvent(receipt, 'BillingPlanSet', {
         provider: Provider,
+        token: token.address,
+        period: '100',
+        price: '80'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider,
+        token: constants.ZERO_ADDRESS,
+        period: '20',
+        price: '20'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider,
+        token: token.address,
         period: '100',
         price: '80'
       })
@@ -79,19 +104,41 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   })
 
   describe('newAgreement', () => {
-    it('should create new Agreement for valid inputs', async () => {
-      await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
+    describe('should create new Agreement for valid inputs', () => {
+      it('native token', async () => {
+        await storageManager.setOffer(1000, [[10, 100], [10, 100]], [[10, 80], [10, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
 
-      const receipt = await storageManager.newAgreement(cid, Provider, 100, 10, [], { from: Consumer, value: 2000 })
-      expectEvent(receipt, 'NewAgreement', {
-        provider: Provider,
-        agreementCreator: Consumer,
-        size: '100',
-        billingPeriod: '10',
-        billingPrice: '10',
-        availableFunds: '2000'
+        const receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: Consumer,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(100)
       })
-      await expectUtilizedCapacity(100)
+      it('erc20 token', async () => {
+        await storageManager.setOffer(1000, [[10, 10], [10, 10]], [[10, 10], [10, 10]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+
+        const balance = await token.balanceOf(Consumer)
+        await token.approve(storageManager.address, 2000, { from: Consumer })
+        const receipt = await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer })
+
+        const nextBalance = await token.balanceOf(Consumer)
+        expect(nextBalance.toNumber()).to.be.eql(balance - 2000)
+
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: Consumer,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(100)
+      })
     })
 
     it('should be possible to create new agreement for reactivated Offer', async () => {
@@ -228,7 +275,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
-    it('should payout, terminate and freeup capacity of Agreements specified by Consumer', async () => {
+    it('should payout, terminate and free-up capacity of Agreements specified by Consumer', async () => {
       await storageManager.setOffer(1000, [10, 100], [10, 80], [], { from: Provider })
 
       // Agreement that uses whole capacity of the offer

@@ -32,6 +32,8 @@
   },
   "scripts": {
     "test": "truffle test",
+    "build": "truffle build",
+    "compile": "truffle compile",
     "lint": "tasegir lint",
     "compile": "truffle  compile",
     "build": "truffle  build",
