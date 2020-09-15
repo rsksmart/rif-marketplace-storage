@@ -2,14 +2,15 @@ pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title StorageManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
 /// @author Adam Uhlir <adam@iovlabs.org>
 /// @notice Providers can offer their storage space and list their price and Consumers can take these offers
-contract StorageManager is Ownable {
+contract StorageManager is Ownable, Pausable {
 
     using SafeMath for uint256;
     using SafeMath for uint128;
@@ -19,30 +20,30 @@ contract StorageManager is Ownable {
     /*
     Offer represents:
      - utilizedCapacity: how much is capacity is utilized in Offer.
-     - totalCapacity: total amount of bytes offered.
+     - totalCapacity: total amount of mega-bytes (MB) offered.
      - billingPlansForToken: maps a whitelisted token to billing period to a billing price. When a price is 0, the period is not offered. By convention, the 0-address stands for the native currency
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
         uint128 utilizedCapacity;
         uint128 totalCapacity;
-        mapping(address => mapping(uint64 => uint64)) billingPlansForToken;
+        mapping(address => mapping(uint64 => uint128)) billingPlansForToken;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
 
     /*
     Agreement represents:
      - billingPrice: price per byte that is collected per each period.
-     - billingPeriod: period how often billing happens.
-     - size: allocated size for the Agreement (in bytes, rounded up)
+     - billingPeriod: period how often billing happens in seconds.
+     - size: allocated size for the Agreement (in MB, rounded up)
      - availableFunds: funds available for the billing of the Agreement.
      - lastPayoutDate: When was the last time Provider was payed out. Zero either means non-existing or terminated Agreement.
     */
     struct Agreement {
-        uint64 billingPrice;
+        uint128 billingPrice;
         uint64 billingPeriod;
         uint256 availableFunds;
-        uint128 size;
+        uint64 size;
         uint128 lastPayoutDate;
     }
 
@@ -52,8 +53,8 @@ contract StorageManager is Ownable {
     // maps the tokenAddresses which can be used with this contract. By convention, address(0) is the native token.
     mapping(address => bool) public isWhitelistedToken;
 
-    event TotalCapacitySet(address indexed provider, uint128 capacity);
-    event BillingPlanSet(address indexed provider, address token, uint64 period, uint64 price);
+    event TotalCapacitySet(address indexed provider, uint64 capacity);
+    event BillingPlanSet(address indexed provider, address token, uint64 period, uint128 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
 
     event NewAgreement(
@@ -62,7 +63,7 @@ contract StorageManager is Ownable {
         address indexed provider,
         uint128 size,
         uint64 billingPeriod,
-        uint64 billingPrice,
+        uint128 billingPrice,
         uint256 availableFunds
     );
     event AgreementFundsDeposited(bytes32 indexed agreementReference, uint256 amount, address indexed token);
@@ -70,7 +71,7 @@ contract StorageManager is Ownable {
     event AgreementFundsPayout(bytes32 indexed agreementReference, uint256 amount, address indexed token);
     event AgreementStopped(bytes32 indexed agreementReference);
 
-    constructor() Ownable() public { }
+    constructor() Ownable() Pausable() public { }
 
     /**
     @notice whitelist a token or remove the token from whitelist
@@ -88,18 +89,18 @@ contract StorageManager is Ownable {
     - Use this function when initiating an Offer or when the users wants to change more than one parameter at once.
     - make sure that any period * prices does not cause an overflow, as this can never be accepted (REF_MAX_PRICE) and hence is pointless
     - only whitelisted tokens are allowed to make an offer for
-    - if there are two tokens, and two billingPrice/periods pairs per token, then boundaries[0] == 1. 
+    - if there are two tokens, and two billingPrice/periods pairs per token, then boundaries[0] == 1.
       This makes the first two billingPeriod/prices pairs to apply to the first token ([tokens[0]]) and the second pairs to the second token.
     - make sure that the length of billingPeriods and billingPrices is of equal length. If billingPeriods is longer than prices => array index out of bounds error. If prices longer than period => the prices in higher indeces won't be considered
-    @param capacity the amount of bytes offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
+    @param capacity the amount of MB offered. If already active before and set to 0, existing contracts can't be prolonged / re-started, no new contracts can be started.
     @param billingPeriods the offered periods. Length must be equal to the length of billingPrices. The first index of the multi dem array corresponds with the address in tokens at the same index
     @param billingPrices the prices for the offered periods. Each entry at index corresponds to the same index at periods. The first index of the multi dem array corresponds with the address in tokens at the same index
     @param tokens the tokens for which an offer is made. By convention, address(0) is the native currency.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
-    function setOffer(uint128 capacity,
+    function setOffer(uint64 capacity,
         uint64[][] memory billingPeriods,
-        uint64[][] memory billingPrices,
+        uint128[][] memory billingPrices,
         address[] memory tokens,
         bytes32[] memory message
     ) public {
@@ -116,7 +117,7 @@ contract StorageManager is Ownable {
     @notice sets total capacity of Offer.
     @param capacity the new capacity
     */
-    function setTotalCapacity(uint128 capacity) public {
+    function setTotalCapacity(uint64 capacity) public {
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -148,7 +149,7 @@ contract StorageManager is Ownable {
     */
     function setBillingPlans(
         uint64[][] memory billingPeriods,
-        uint64[][] memory billingPrices,
+        uint128[][] memory billingPrices,
         address[] memory tokens
     ) public {
         Offer storage offer = offerRegistry[msg.sender];
@@ -168,13 +169,13 @@ contract StorageManager is Ownable {
     >> FOR CONSUMER
     @notice new Agreement for given Offer
     @dev
-     - The to-be-pinned data reference's size in bytes (rounded up) must be equal in size to param size.
+     - The to-be-pinned data reference's size in MB (rounded up) must be equal in size to param size.
      - Provider can reject to pin data reference when it exceeds specified size.
      - The ownership of Agreement is enforced with agreementReference structure which is calculated as: hash(msg.sender, dataReference)
      - if the token is not the native currency, then the contract must be first be given allowance to transfer tokens in it's posession.
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
-    @param size the size of the to-be-pinned file in bytes (rounded up).
+    @param size the size of the to-be-pinned file in MB (rounded up).
     @param billingPeriod the chosen period for billing.
     @param token the token in which you want to make the agreement. By convention: address(0) is the native currency
     @param amount if token is set, this is the amount of tokens that is transfered
@@ -185,14 +186,14 @@ contract StorageManager is Ownable {
     function newAgreement(
         bytes32[] memory dataReference,
         address provider,
-        uint128 size,
+        uint64 size,
         uint64 billingPeriod,
         address token,
         uint256 amount,
         bytes32[][] memory dataReferencesOfAgreementToPayOut,
         address[] memory creatorsOfAgreementToPayOut,
         address tokenOfAgreementsToPayOut
-    ) public payable {
+    ) public payable whenNotPaused {
         Offer storage offer = offerRegistry[provider];
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
         require(size > 0, "StorageManager: Size has to be bigger then 0");
@@ -217,7 +218,7 @@ contract StorageManager is Ownable {
             creators[0] = msg.sender;
             _payoutFunds(dataReferenceOfAgreementToPayout, creators, token, payable(provider));
         }
-        uint64 billingPrice = offer.billingPlansForToken[token][billingPeriod];
+        uint128 billingPrice = offer.billingPlansForToken[token][billingPeriod];
         require(billingPrice != 0, "StorageManager: Billing price doesn't exist for Offer");
         // can only define agreement here, because otherwise StakeTooDeep error
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
@@ -226,7 +227,7 @@ contract StorageManager is Ownable {
         if(token == address(0)) {
             agreement.availableFunds = agreement.availableFunds.add(msg.value);
         } else {
-            require(ERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
             agreement.availableFunds = agreement.availableFunds.add(amount);
         }
         require(agreement.availableFunds >= size.mul(billingPrice), "StorageManager: Funds deposited has to be for at least one billing period");
@@ -239,7 +240,7 @@ contract StorageManager is Ownable {
         // used to track spent funds.
         agreement.lastPayoutDate = uint128(_time());
         offer = offerRegistry[provider];
-        offer.utilizedCapacity = uint128(offer.utilizedCapacity.add(size));
+        offer.utilizedCapacity = uint64(offer.utilizedCapacity.add(size));
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         emit NewAgreement(
@@ -264,7 +265,7 @@ contract StorageManager is Ownable {
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable {
+    function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
         require(isWhitelistedToken[token]);
         Offer storage offer = offerRegistry[provider];
@@ -279,7 +280,7 @@ contract StorageManager is Ownable {
             agreement.availableFunds = agreement.availableFunds.add(msg.value);
         } else {
             // contract must be allowed to transfer
-            require(ERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
         }
         emit AgreementFundsDeposited(agreementReference, msg.value, token);
     }
@@ -296,7 +297,12 @@ contract StorageManager is Ownable {
     @param tokens the tokens in which to withdraw. By convention, address(0) is the native currency.
     @param amounts the value you want to withdraw for each token
     */
-    function withdrawFunds(bytes32[] memory dataReference, address provider, address[] memory tokens, uint256[] memory amounts) public {
+    function withdrawFunds(
+        bytes32[] memory dataReference,
+        address provider,
+        address[] memory tokens,
+        uint256[] memory amounts
+    ) public whenNotPaused {
         Offer storage offer = offerRegistry[provider];
         for(uint256 i; i < tokens.length; i++) {
             uint256 amount = amounts[i];
@@ -325,7 +331,7 @@ contract StorageManager is Ownable {
                 (bool success,) = msg.sender.call.value(amount)("");
                 require(success, "Transfer failed.");
             } else {
-                require(ERC20(token).transfer(msg.sender, amount), "StorageManager: not allowed to deposit tokens from token contract");
+                require(IERC20(token).transfer(msg.sender, amount), "StorageManager: not allowed to deposit tokens from token contract");
             }
             emit AgreementFundsWithdrawn(agreementReference, amount, token);
         }
@@ -348,15 +354,15 @@ contract StorageManager is Ownable {
         bytes32[][] memory dataReferencesOfAgreementToPayOut,
         address[] memory creatorsOfAgreementToPayOut,
         address tokensOfAgreementsToPayOut,
-        address provider
-    ) public {
+        address payable provider
+    ) public whenNotPaused {
         _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
     }
 
     /**
-    @notice sets the billing plans for multiple tokens. 
+    @notice sets the billing plans for multiple tokens.
     @dev
-    - the billingPeriods and billingPrices hold the period/price pair for all tokens. 
+    - the billingPeriods and billingPrices hold the period/price pair for all tokens.
     - the length of tokens array must always be one shorter than the length of the boundaries array (otherwise you get an array index out of bounds error)
     - make sure that the length of billingPeriods and billingPrices is of equal length. If billingPeriods is longer than prices => array index out of bounds error. If prices longer than period => the prices in higher indeces won't be considered
     @param offer the offer for which the billingPlan is set
@@ -367,7 +373,7 @@ contract StorageManager is Ownable {
     function _setBillingPlansWithMultipleTokens(
         Offer storage offer,
         uint64[][] memory billingPeriods,
-        uint64[][] memory billingPrices,
+        uint128[][] memory billingPrices,
         address[] memory tokens
     ) internal {
         // iterate once for each token
@@ -388,7 +394,7 @@ contract StorageManager is Ownable {
     ) internal {
         Offer storage offer = offerRegistry[provider];
         uint256 toTransfer;
-    
+
         for (uint8 i = 0; i < dataReferenceOfAgreementToPayOut.length; i++) {
             bytes32 agreementReference = getAgreementReference(dataReferenceOfAgreementToPayOut[i], creatorsOfAgreementToPayOut[i], tokenOfAgreementsToPayOut);
             Agreement storage agreement = offer.agreementRegistry[agreementReference];
@@ -407,7 +413,7 @@ contract StorageManager is Ownable {
                     agreement.lastPayoutDate = 0;
 
                     // Add back capacity
-                    offer.utilizedCapacity = uint128(offer.utilizedCapacity.sub(agreement.size));
+                    offer.utilizedCapacity = uint64(offer.utilizedCapacity.sub(agreement.size));
                     emit AgreementStopped(agreementReference);
                 } else {// Provider called this during active agreement which has still funds to run
                     agreement.lastPayoutDate = uint128(_time());
@@ -422,7 +428,7 @@ contract StorageManager is Ownable {
                 (bool success,) = provider.call.value(toTransfer)("");
                 require(success, "StorageManager: Transfer failed.");
             } else {
-                assert(ERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer));
+                assert(IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer));
             }
         }
     }
@@ -458,7 +464,7 @@ contract StorageManager is Ownable {
     /*
     @dev Only non-zero prices periods are considered to be active. To remove a period, set it's price to 0
     */
-    function _setBillingPlanForToken(Offer storage offer, address token, uint64 period, uint64 price) internal {
+    function _setBillingPlanForToken(Offer storage offer, address token, uint64 period, uint128 price) internal {
         require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         offer.billingPlansForToken[token][period] = price;
