@@ -214,6 +214,7 @@ contract StorageManager is Ownable, Pausable {
         if(offer.agreementRegistry[agreementReference].lastPayoutDate != 0){
             bytes32[][] memory dataReferenceOfAgreementToPayout = new bytes32[][](0);
             address[] memory creators = new address[](0);
+            // TODO invalid op code here
             dataReferenceOfAgreementToPayout[0] = dataReference;
             creators[0] = msg.sender;
             _payoutFunds(dataReferenceOfAgreementToPayout, creators, token, payable(provider));
@@ -380,7 +381,7 @@ contract StorageManager is Ownable, Pausable {
         for (uint256 i; i < tokens.length; i++) {
             // for each token, list all period/price pairs
             for (uint256 j; j < billingPeriods[i].length; j++) {
-                _setBillingPlanForToken(offer, tokens[j], billingPeriods[i][j], billingPrices[i][j]);
+                _setBillingPlanForToken(offer, tokens[i], billingPeriods[i][j], billingPrices[i][j]);
             }
         }
     }
