@@ -56,4 +56,3 @@ First dev release. Includes basically working contract shallowly tested.
 * support for generated types ([#52](https://github.com/rsksmart/rif-marketplace-storage/issues/52)) ([81827a4](https://github.com/rsksmart/rif-marketplace-storage/commit/81827a4))
 
 
-

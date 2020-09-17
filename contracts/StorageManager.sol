@@ -287,6 +287,10 @@ contract StorageManager {
         _payoutFunds(agreementReferences, msg.sender);
     }
 
+    function hasUtilizedCapacity(address storer) public view returns(bool) {
+        return (offerRegistry[storer].utilizedCapacity != 0);
+    }
+
     function _payoutFunds(bytes32[] memory agreementReferences, address payable provider) internal {
         Offer storage offer = offerRegistry[provider];
         uint256 toTransfer = 0;
