@@ -212,9 +212,8 @@ contract StorageManager is Ownable, Pausable {
         // If the current agreement is still running (but for example already expired, eq. ran out of the funds in past)
         // we need to payout all the funds. AgreementStopped can be emitted as part of this call if no
         if(offer.agreementRegistry[agreementReference].lastPayoutDate != 0){
-            bytes32[][] memory dataReferenceOfAgreementToPayout = new bytes32[][](0);
-            address[] memory creators = new address[](0);
-            // TODO invalid op code here
+            bytes32[][] memory dataReferenceOfAgreementToPayout = new bytes32[][](1);
+            address[] memory creators = new address[](1);
             dataReferenceOfAgreementToPayout[0] = dataReference;
             creators[0] = msg.sender;
             _payoutFunds(dataReferenceOfAgreementToPayout, creators, token, payable(provider));
@@ -279,11 +278,12 @@ contract StorageManager is Ownable, Pausable {
         if(token == address(0)) {
             // amount is taken from msg.value and not from function argument
             agreement.availableFunds = agreement.availableFunds.add(msg.value);
+            emit AgreementFundsDeposited(agreementReference, msg.value, token);
         } else {
             // contract must be allowed to transfer
             require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+            emit AgreementFundsDeposited(agreementReference, amount, token);
         }
-        emit AgreementFundsDeposited(agreementReference, msg.value, token);
     }
 
     /**

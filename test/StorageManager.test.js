@@ -143,38 +143,78 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
-    it('should be possible to create new agreement for reactivated Offer', async () => {
-      let receipt
-      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
-      receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
-      expectEvent(receipt, 'NewAgreement', {
-        provider: Provider,
-        agreementCreator: Consumer,
-        size: '100',
-        billingPeriod: '10',
-        billingPrice: '10',
-        availableFunds: '2000'
+    describe('should be possible to create new agreement for reactivated Offer', () => {
+      it('Native token', async () => {
+        let receipt
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: Consumer,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(100)
+
+        await storageManager.terminateOffer({ from: Provider })
+        await expectUtilizedCapacity(100)
+
+        await expectRevert(
+          storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 }),
+          'StorageManager: Offer for this Provider doesn\'t exist'
+        )
+
+        await storageManager.setTotalCapacity(1500, { from: Provider })
+        await expectUtilizedCapacity(100)
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: randomPerson, value: 2000 })
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: randomPerson,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(200)
       })
-      await expectUtilizedCapacity(100)
+      it('ERC20 token', async () => {
+        let receipt
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [token.address], [], { from: Provider })
+        await token.approve(storageManager.address, 4500, { from: Consumer })
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer })
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: Consumer,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(100)
 
-      await storageManager.terminateOffer({ from: Provider })
-      await expectUtilizedCapacity(100)
+        await storageManager.terminateOffer({ from: Provider })
+        await expectUtilizedCapacity(100)
 
-      await expectRevert(storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 }),
-        'StorageManager: Offer for this Provider doesn\'t exist')
+        await expectRevert(
+          storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer }),
+          'StorageManager: Offer for this Provider doesn\'t exist')
 
-      await storageManager.setTotalCapacity(1500, { from: Provider })
-      await expectUtilizedCapacity(100)
-      receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: randomPerson, value: 2000 })
-      expectEvent(receipt, 'NewAgreement', {
-        provider: Provider,
-        agreementCreator: randomPerson,
-        size: '100',
-        billingPeriod: '10',
-        billingPrice: '10',
-        availableFunds: '2000'
+        await storageManager.setTotalCapacity(1500, { from: Provider })
+        await expectUtilizedCapacity(100)
+        await token.approve(storageManager.address, 2000, { from: randomPerson })
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: randomPerson })
+        expectEvent(receipt, 'NewAgreement', {
+          provider: Provider,
+          agreementCreator: randomPerson,
+          size: '100',
+          billingPeriod: '10',
+          billingPrice: '10',
+          availableFunds: '2000'
+        })
+        await expectUtilizedCapacity(200)
       })
-      await expectUtilizedCapacity(200)
     })
 
     it('should revert for non-existing/non-active Offer', async () => {
@@ -191,7 +231,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Billing period of 0 not allowed')
     })
 
-    it.skip('should payout funds when agreement already exists with running funds', async () => {
+    it('should payout funds when agreement already exists with running funds', async () => {
       await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
       await storageManager.incrementTime(11)
@@ -203,7 +243,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       expectEvent.notEmitted(receipt, 'AgreementStopped')
     })
 
-    it.skip('should change billing plan when agreement already exists with running funds', async () => {
+    it('should change billing plan when agreement already exists with running funds', async () => {
       await storageManager.setOffer(1000, [[10, 100]], [[10, 100]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, {
         from: Consumer,
@@ -256,7 +296,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Funds deposited has to be for at least one billing period')
     })
 
-    it.skip('should recreate expired Agreement ', async () => {
+    it('should recreate expired Agreement ', async () => {
       await storageManager.setOffer(1000, [[1, 2]], [[10, 20]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, {
         from: Consumer,
@@ -265,7 +305,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
       await storageManager.incrementTime(1)
 
-      await storageManager.payoutFunds([[]], [Provider], constants.ZERO_ADDRESS, Provider, { from: Provider })
+      await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
       const receipt = await storageManager.newAgreement(cid, Provider, 100, 2, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
       expectEvent(receipt, 'NewAgreement', {
         provider: Provider,
@@ -277,7 +317,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       })
     })
 
-    it.skip('should payout, terminate and free-up capacity of Agreements specified by Consumer', async () => {
+    it('should payout, terminate and free-up capacity of Agreements specified by Consumer', async () => {
       await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
 
       // Agreement that uses whole capacity of the offer
@@ -293,9 +333,9 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
         'StorageManager: Insufficient Offer\'s capacity')
 
       // Lets fast forward when the first Agreement run out of founds and hence is awaiting for termination
-      await storageManager.incrementTime(15)
+      await storageManager.incrementTime(30)
 
-      const receipt = await storageManager.newAgreement(cid, Provider, 200, 10, constants.ZERO_ADDRESS, 0, [cid], [Consumer], constants.ZERO_ADDRESS, {
+      const receipt = await storageManager.newAgreement(cid, Provider, 200, 10, constants.ZERO_ADDRESS, 0, [cid], [randomPerson], constants.ZERO_ADDRESS, {
         from: Consumer,
         value: 2000
       })
@@ -320,13 +360,26 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   })
 
   describe('depositFunds', function () {
-    it('should deposit funds for valid inputs', async () => {
-      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
-      await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+    describe('should deposit funds for valid inputs', () => {
+      it('Native token', async () => {
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+        await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
 
-      const receipt = await storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 })
-      expectEvent(receipt, 'AgreementFundsDeposited', {
-        amount: '100'
+        const receipt = await storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 })
+        expectEvent(receipt, 'AgreementFundsDeposited', {
+          amount: '100'
+        })
+      })
+      it('ERC20 token', async () => {
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [token.address], [], { from: Provider })
+        token.approve(storageManager.address, 2000, { from: Consumer })
+        await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer })
+
+        token.approve(storageManager.address, 100, { from: Consumer })
+        const receipt = await storageManager.depositFunds(token.address, 100, cid, Provider, { from: Consumer })
+        expectEvent(receipt, 'AgreementFundsDeposited', {
+          amount: '100'
+        })
       })
     })
 
@@ -387,13 +440,25 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   })
 
   describe('withdrawFunds', function () {
-    it('should withdraw funds for valid inputs', async () => {
-      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
-      await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+    describe('should withdraw funds for valid inputs', () => {
+      it('Native token', async () => {
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+        await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
 
-      const receipt = await storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: Consumer })
-      expectEvent(receipt, 'AgreementFundsWithdrawn', {
-        amount: '1000'
+        const receipt = await storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: Consumer })
+        expectEvent(receipt, 'AgreementFundsWithdrawn', {
+          amount: '1000'
+        })
+      })
+      it('ERC20 token', async () => {
+        await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [token.address], [], { from: Provider })
+        await token.approve(storageManager.address, 2000, { from: Consumer })
+        await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer })
+
+        const receipt = await storageManager.withdrawFunds(cid, Provider, [token.address], [1000], { from: Consumer })
+        expectEvent(receipt, 'AgreementFundsWithdrawn', {
+          amount: '1000'
+        })
       })
     })
 
@@ -502,22 +567,33 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
   })
 
   describe('payoutFunds', function () {
-    it('should payout funds for valid inputs', async () => {
-      await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
-      await storageManager.newAgreement(cid, Provider, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
-      await storageManager.incrementTime(2)
+    describe('should payout funds for valid inputs', () => {
+      it('Native token', async () => {
+        await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+        await storageManager.newAgreement(cid, Provider, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
+        await storageManager.incrementTime(2)
 
-      const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
-      expectEvent(receipt, 'AgreementFundsPayout', {
-        amount: '2000'
+        const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
+        expectEvent(receipt, 'AgreementFundsPayout', {
+          amount: '2000'
+        })
+      })
+      it('ERC20 token', async () => {
+        await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [token.address], [], { from: Provider })
+        await token.approve(storageManager.address, 5000, { from: Consumer })
+        await storageManager.newAgreement(cid, Provider, 100, 1, token.address, 5000, [], [], token.address, { from: Consumer })
+        await storageManager.incrementTime(2)
+
+        const receipt = await storageManager.payoutFunds([cid], [Consumer], token.address, Provider, { from: Provider })
+        expectEvent(receipt, 'AgreementFundsPayout', {
+          amount: '2000'
+        })
       })
     })
 
     it('should not do anything when nothing is to payout', async () => {
       await storageManager.setOffer(1000, [[1, 100]], [[10, 100]], [constants.ZERO_ADDRESS], [], { from: Provider })
-      const agreementReference = getAgreementReference(
-        await storageManager.newAgreement(cid, Provider, 100, 100, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 50000 })
-      )
+      await storageManager.newAgreement(cid, Provider, 100, 100, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 50000 })
       await storageManager.incrementTime(2)
 
       const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
