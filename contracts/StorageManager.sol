@@ -103,7 +103,7 @@ contract StorageManager is Ownable, Pausable {
         uint128[][] memory billingPrices,
         address[] memory tokens,
         bytes32[] memory message
-    ) public {
+    ) public whenNotPaused {
         Offer storage offer = offerRegistry[msg.sender];
         setTotalCapacity(capacity);
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -117,7 +117,7 @@ contract StorageManager is Ownable, Pausable {
     @notice sets total capacity of Offer.
     @param capacity the new capacity
     */
-    function setTotalCapacity(uint64 capacity) public {
+    function setTotalCapacity(uint64 capacity) public whenNotPaused {
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -129,7 +129,7 @@ contract StorageManager is Ownable, Pausable {
     @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
-    function terminateOffer() public {
+    function terminateOffer() public whenNotPaused {
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         offer.totalCapacity = 0;
@@ -151,7 +151,7 @@ contract StorageManager is Ownable, Pausable {
         uint64[][] memory billingPeriods,
         uint128[][] memory billingPrices,
         address[] memory tokens
-    ) public {
+    ) public whenNotPaused {
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -432,6 +432,20 @@ contract StorageManager is Ownable, Pausable {
                 assert(IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer));
             }
         }
+    }
+
+    /**
+     * @dev Called by a pauser to pause, triggers stopped state.
+     */
+    function pause() public onlyOwner whenNotPaused {
+        _pause();
+    }
+
+    /**
+     * @dev Called by a pauser to unpause, returns to normal state.
+     */
+    function unpause() public onlyOwner whenPaused {
+        _unpause();
     }
 
     /**

@@ -621,4 +621,76 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await expectUtilizedCapacity(0)
     })
   })
+
+  describe('Pausable', () => {
+    it('should not be able to create offer when paused', async () => {
+      await storageManager.pause({ from: randomPerson })
+      expect(await storageManager.paused()).to.be.eql(true)
+      const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
+      await expectRevert(
+        storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider }),
+        'Pausable: paused'
+      )
+    })
+    it('should not be able to to set capacity when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: randomPerson })
+      await expectRevert(
+        storageManager.setTotalCapacity(23, { from: Provider }),
+        'Pausable: paused'
+      )
+    })
+    it('should not be able to to terminate offer when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: randomPerson })
+      await expectRevert(
+        storageManager.terminateOffer({ from: Provider }),
+        'Pausable: paused'
+      )
+    })
+    it('should not be able to set billing plans when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: randomPerson })
+      await expectRevert(
+        storageManager.setBillingPlans([[1, 2]],[[1, 2]], [constants.ZERO_ADDRESS], { from: Provider }),
+        'Pausable: paused'
+      )
+    })
+    it('should not be able to create agreement when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: randomPerson })
+      await expectRevert(
+        storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 }),
+        'Pausable: paused'
+      )
+    })
+    it('should not be able to deposit when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: randomPerson })
+      await expectRevert(
+        storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 }),
+        'Pausable: paused'
+      )
+    })
+    it('should be able to withdrawFunds when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+      await storageManager.pause({ from: randomPerson })
+      const receipt = await storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: Consumer })
+      expectEvent(receipt, 'AgreementFundsWithdrawn', {
+        amount: '1000'
+      })
+    })
+    it('should be able to payoutFunds when paused', async () => {
+      await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
+      await storageManager.pause({ from: randomPerson })
+      await storageManager.incrementTime(2)
+
+      const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
+      expectEvent(receipt, 'AgreementFundsPayout', {
+        amount: '2000'
+      })
+    })
+  })
 })
