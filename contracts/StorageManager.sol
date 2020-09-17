@@ -303,7 +303,7 @@ contract StorageManager is Ownable, Pausable {
         address provider,
         address[] memory tokens,
         uint256[] memory amounts
-    ) public whenNotPaused {
+    ) public {
         Offer storage offer = offerRegistry[provider];
         for(uint256 i; i < tokens.length; i++) {
             uint256 amount = amounts[i];
@@ -356,7 +356,7 @@ contract StorageManager is Ownable, Pausable {
         address[] memory creatorsOfAgreementToPayOut,
         address tokensOfAgreementsToPayOut,
         address payable provider
-    ) public whenNotPaused {
+    ) public {
         _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
     }
 
