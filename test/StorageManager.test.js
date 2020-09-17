@@ -15,19 +15,19 @@ function getAgreementReference (receipt) {
   return newAgreementEvent.args.agreementReference
 }
 
-contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
+contract('StorageManager', ([Provider, Consumer, Owner]) => {
   let storageManager
   let token
   const cid = [asciiToHex('/ipfs/QmSomeHash')]
 
   beforeEach(async function () {
-    storageManager = await StorageManager.new({ from: randomPerson })
-    token = token = await ERC20.new('myToken', 'mT', randomPerson, 100000, { from: randomPerson })
+    storageManager = await StorageManager.new({ from: Owner })
+    token = token = await ERC20.new('myToken', 'mT', Owner, 100000, { from: Owner })
 
-    await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
-    await storageManager.setWhitelistedTokens(token.address, true, { from: randomPerson })
+    await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
+    await storageManager.setWhitelistedTokens(token.address, true, { from: Owner })
 
-    await token.transfer(Consumer, 10000, { from: randomPerson })
+    await token.transfer(Consumer, 10000, { from: Owner })
 
     await storageManager.setTime(100)
   })
@@ -168,10 +168,10 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
         await storageManager.setTotalCapacity(1500, { from: Provider })
         await expectUtilizedCapacity(100)
-        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: randomPerson, value: 2000 })
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Owner, value: 2000 })
         expectEvent(receipt, 'NewAgreement', {
           provider: Provider,
-          agreementCreator: randomPerson,
+          agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
           billingPrice: '10',
@@ -203,11 +203,11 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
         await storageManager.setTotalCapacity(1500, { from: Provider })
         await expectUtilizedCapacity(100)
-        await token.approve(storageManager.address, 2000, { from: randomPerson })
-        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: randomPerson })
+        await token.approve(storageManager.address, 2000, { from: Owner })
+        receipt = await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Owner })
         expectEvent(receipt, 'NewAgreement', {
           provider: Provider,
-          agreementCreator: randomPerson,
+          agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
           billingPrice: '10',
@@ -274,7 +274,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
       // Agreement that uses whole capacity of the offer
       await storageManager.newAgreement(cid, Provider, 900, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, {
-        from: randomPerson,
+        from: Owner,
         value: 10000
       })
       await expectUtilizedCapacity(900)
@@ -322,7 +322,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
       // Agreement that uses whole capacity of the offer
       const agreementReference = getAgreementReference(await storageManager.newAgreement(cid, Provider, 900, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, {
-        from: randomPerson,
+        from: Owner,
         value: 10000
       }))
 
@@ -335,7 +335,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       // Lets fast forward when the first Agreement run out of founds and hence is awaiting for termination
       await storageManager.incrementTime(30)
 
-      const receipt = await storageManager.newAgreement(cid, Provider, 200, 10, constants.ZERO_ADDRESS, 0, [cid], [randomPerson], constants.ZERO_ADDRESS, {
+      const receipt = await storageManager.newAgreement(cid, Provider, 200, 10, constants.ZERO_ADDRESS, 0, [cid], [Owner], constants.ZERO_ADDRESS, {
         from: Consumer,
         value: 2000
       })
@@ -485,7 +485,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
       await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 3000 })
 
-      await expectRevert(storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: randomPerson }),
+      await expectRevert(storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: Owner }),
         'StorageManager: Agreement for this Offer doesn\'t exist')
     })
 
@@ -624,7 +624,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
 
   describe('Pausable', () => {
     it('should not be able to create offer when paused', async () => {
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       expect(await storageManager.paused()).to.be.eql(true)
       const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
       await expectRevert(
@@ -634,23 +634,15 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     })
     it('should not be able to to set capacity when paused', async () => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       await expectRevert(
         storageManager.setTotalCapacity(23, { from: Provider }),
         'Pausable: paused'
       )
     })
-    it('should not be able to to terminate offer when paused', async () => {
-      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
-      await storageManager.pause({ from: randomPerson })
-      await expectRevert(
-        storageManager.terminateOffer({ from: Provider }),
-        'Pausable: paused'
-      )
-    })
     it('should not be able to set billing plans when paused', async () => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       await expectRevert(
         storageManager.setBillingPlans([[1, 2]],[[1, 2]], [constants.ZERO_ADDRESS], { from: Provider }),
         'Pausable: paused'
@@ -658,7 +650,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     })
     it('should not be able to create agreement when paused', async () => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       await expectRevert(
         storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 }),
         'Pausable: paused'
@@ -666,7 +658,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     })
     it('should not be able to deposit when paused', async () => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       await expectRevert(
         storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 }),
         'Pausable: paused'
@@ -675,7 +667,7 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should be able to withdrawFunds when paused', async () => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       const receipt = await storageManager.withdrawFunds(cid, Provider, [constants.ZERO_ADDRESS], [1000], { from: Consumer })
       expectEvent(receipt, 'AgreementFundsWithdrawn', {
         amount: '1000'
@@ -684,12 +676,21 @@ contract('StorageManager', ([Provider, Consumer, randomPerson]) => {
     it('should be able to payoutFunds when paused', async () => {
       await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
-      await storageManager.pause({ from: randomPerson })
+      await storageManager.pause({ from: Owner })
       await storageManager.incrementTime(2)
 
       const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
       expectEvent(receipt, 'AgreementFundsPayout', {
         amount: '2000'
+      })
+    })
+    it('should be able to to terminate offer when paused', async () => {
+      await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
+      await storageManager.pause({ from: Owner })
+      const receipt = await storageManager.terminateOffer({ from: Provider })
+      expectEvent(receipt, 'TotalCapacitySet', {
+        provider: Provider,
+        capacity: '0'
       })
     })
   })

@@ -129,7 +129,7 @@ contract StorageManager is Ownable, Pausable {
     @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
-    function terminateOffer() public whenNotPaused {
+    function terminateOffer() public {
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         offer.totalCapacity = 0;
