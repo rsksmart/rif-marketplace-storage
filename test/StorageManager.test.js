@@ -644,7 +644,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
       await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], [], { from: Provider })
       await storageManager.pause({ from: Owner })
       await expectRevert(
-        storageManager.setBillingPlans([[1, 2]],[[1, 2]], [constants.ZERO_ADDRESS], { from: Provider }),
+        storageManager.setBillingPlans([[1, 2]], [[1, 2]], [constants.ZERO_ADDRESS], { from: Provider }),
         'Pausable: paused'
       )
     })
