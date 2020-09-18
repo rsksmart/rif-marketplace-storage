@@ -116,7 +116,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -136,7 +136,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -153,7 +153,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -174,7 +174,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(200)
@@ -210,7 +210,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(200)
@@ -312,7 +312,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
         agreementCreator: Consumer,
         size: '100',
         billingPeriod: '2',
-        billingPrice: '20',
+        token: token.address,
         availableFunds: '2500'
       })
     })
@@ -344,7 +344,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
         agreementCreator: Consumer,
         size: '200',
         billingPeriod: '10',
-        billingPrice: '10',
+        token: token.address,
         availableFunds: '2000'
       })
       expectEvent(receipt, 'AgreementFundsPayout', {
