@@ -267,7 +267,7 @@ contract StorageManager is Ownable, Pausable {
     */
     function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
-        require(isWhitelistedToken[token]);
+        require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         Offer storage offer = offerRegistry[provider];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
