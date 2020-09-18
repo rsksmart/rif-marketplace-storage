@@ -25,9 +25,11 @@ contract('Staking', ([staker, randomPerson]) => {
     // Deploy Staking
     staking = await Staking.new(storageManager.address, { from: randomPerson })
     // White list token
+    await storageManager.setWhitelistedTokens(token.address, true, { from: randomPerson })
     await staking.setWhitelistedTokens(token.address, true, { from: randomPerson })
     // White list native token
     await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
+    await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
 
     // distribute tokens
     await token.transfer(staker, 10000, { from: randomPerson })
@@ -234,9 +236,9 @@ contract('Staking', ([staker, randomPerson]) => {
     it('should not unstake when storage offer active', async () => {
       const toStake = 5000
       // set StorageOffer by staker
-      await storageManager.setOffer(1000, [10, 100], [10, 80], [padRight(asciiToHex('testMessage'))], { from: staker })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [padRight(asciiToHex('testMessage'))], { from: staker })
       // newAgreement by randomPerson
-      await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, [], { from: randomPerson, value: 2000 })
+      await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: randomPerson, value: 2000 })
       // stake
       await staking.stake(0, constants.ZERO_ADDRESS, constants.ZERO_BYTES32, { from: staker, value: toStake, gasPrice: 0 })
       // attempt to unstake
@@ -284,10 +286,11 @@ contract('Staking', ([staker, randomPerson]) => {
   describe('unstakeToken', () => {
     it('should not unstake when storage offer active', async () => {
       const toStake = 5000
+      await token.approve(storageManager.address, 2000, { from: staker })
       // set StorageOffer by staker
-      await storageManager.setOffer(1000, [10, 100], [10, 80], [padRight(asciiToHex('testMessage'))], { from: staker })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [token.address], [padRight(asciiToHex('testMessage'))], { from: staker })
       // newAgreement by randomPerson
-      await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, [], { from: randomPerson, value: 2000 })
+      await storageManager.newAgreement([asciiToHex('/ipfs/QmSomeHash')], staker, 100, 10, token.address, 2000, [], [], token.address, { from: staker })
       // approve
       await token.approve(staking.address, toStake, { from: staker })
       // stake
