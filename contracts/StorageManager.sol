@@ -386,6 +386,10 @@ contract StorageManager is Ownable, Pausable {
         }
     }
 
+    function hasUtilizedCapacity(address storer) public view returns(bool) {
+        return (offerRegistry[storer].utilizedCapacity != 0);
+    }
+
     // Only one token can be used to pay out
     function _payoutFunds(
         bytes32[][] memory dataReferenceOfAgreementToPayOut,
