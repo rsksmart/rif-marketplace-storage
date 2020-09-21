@@ -58,7 +58,7 @@ contract StorageManager is Ownable, Pausable {
     event MessageEmitted(address indexed provider, bytes32[] message);
 
     event NewAgreement(
-        bytes32 dataReference,
+        bytes32[] dataReference,
         address indexed agreementCreator,
         address indexed provider,
         uint128 size,
