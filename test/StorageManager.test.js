@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
+const { soliditySha3 } = require('web3-utils')
+
 const {
   expectEvent,
   expectRevert,
@@ -12,7 +14,7 @@ const ERC20 = artifacts.require('MockERC20')
 
 function getAgreementReference (receipt) {
   const newAgreementEvent = receipt.logs.find(e => e.event === 'NewAgreement')
-  return newAgreementEvent.args.agreementReference
+  return soliditySha3(newAgreementEvent.args.agreementCreator, ...newAgreementEvent.args.dataReference, newAgreementEvent.args.token)
 }
 
 contract('StorageManager', ([Provider, Consumer, Owner]) => {
@@ -116,7 +118,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: constants.ZERO_ADDRESS,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -136,7 +138,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -153,7 +155,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: constants.ZERO_ADDRESS,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -174,7 +176,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: constants.ZERO_ADDRESS,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(200)
@@ -189,7 +191,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Consumer,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(100)
@@ -210,7 +212,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
           agreementCreator: Owner,
           size: '100',
           billingPeriod: '10',
-          billingPrice: '10',
+          token: token.address,
           availableFunds: '2000'
         })
         await expectUtilizedCapacity(200)
@@ -312,7 +314,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
         agreementCreator: Consumer,
         size: '100',
         billingPeriod: '2',
-        billingPrice: '20',
+        token: constants.ZERO_ADDRESS,
         availableFunds: '2500'
       })
     })
@@ -344,7 +346,7 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
         agreementCreator: Consumer,
         size: '200',
         billingPeriod: '10',
-        billingPrice: '10',
+        token: constants.ZERO_ADDRESS,
         availableFunds: '2000'
       })
       expectEvent(receipt, 'AgreementFundsPayout', {
