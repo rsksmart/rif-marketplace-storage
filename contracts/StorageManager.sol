@@ -63,6 +63,7 @@ contract StorageManager is Ownable, Pausable {
         address indexed provider,
         uint128 size,
         uint64 billingPeriod,
+        uint128 billingPrice,
         address token,
         uint256 availableFunds
     );
@@ -249,6 +250,7 @@ contract StorageManager is Ownable, Pausable {
             provider,
             size,
             billingPeriod,
+            billingPrice,
             token,
             agreement.availableFunds
         );
