@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-marketplace-storage",
-  "version": "0.1.0-dev.1",
+  "version": "0.1.0-dev.2",
   "description": "Contracts for incentivized pinning",
   "keywords": [
     "RIF",
@@ -63,6 +63,7 @@
   "contributors": [
     "Adam Uhlíř <adam@uhlir.dev>",
     "Julian M. Rodriguez <56316686+julianmrodri@users.noreply.github.com>",
+    "Nazar Duchak <41945483+nduchak@users.noreply.github.com>",
     "Rinke Hendriksen <33000441+Eknir@users.noreply.github.com>",
     "Vojtech Simetka <vojtech@simetka.cz>",
     "dependabot-preview[bot] <27856297+dependabot-preview[bot]@users.noreply.github.com>",
