@@ -18,6 +18,7 @@
     "email": "<rinke@iovlabs.org>"
   },
   "files": [
+    "contracts/*.sol",
     "build/contracts",
     "types"
   ],
