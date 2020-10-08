@@ -39,10 +39,13 @@
     "release": "tasegir release --no-docs --no-compile --no-test --no-build",
     "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json && typechain --target=web3-v1 build/contracts/Staking.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/Staking.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/Staking.json && typechain --target=ethers-v4 build/contracts/Staking.json"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@openzeppelin/contracts-ethereum-package": "^3.0.0"
+  },
   "devDependencies": {
     "@openzeppelin/contracts": "^3.1.0",
     "@openzeppelin/test-helpers": "^0.5.6",
+    "@openzeppelin/truffle-upgrades": "^1.1.0",
     "@typechain/ethers-v4": "^1.0.0",
     "@typechain/truffle-v4": "^2.0.3",
     "@typechain/truffle-v5": "^2.0.2",

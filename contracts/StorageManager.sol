@@ -3,14 +3,14 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/utils/Pausable.sol";
 
 /// @title StorageManager
 /// @author Rinke Hendriksen <rinke@iovlabs.org>
 /// @author Adam Uhlir <adam@iovlabs.org>
 /// @notice Providers can offer their storage space and list their price and Consumers can take these offers
-contract StorageManager is Ownable, Pausable {
+contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
 
     using SafeMath for uint256;
     using SafeMath for uint128;
@@ -72,7 +72,10 @@ contract StorageManager is Ownable, Pausable {
     event AgreementFundsPayout(bytes32 indexed agreementReference, uint256 amount, address indexed token);
     event AgreementStopped(bytes32 indexed agreementReference);
 
-    constructor() Ownable() Pausable() public { }
+    function initialize() public initializer {
+      __Ownable_init();
+      __Pausable_init();
+    }
 
     /**
     @notice whitelist a token or remove the token from whitelist

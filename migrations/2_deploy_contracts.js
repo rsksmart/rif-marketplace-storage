@@ -1,5 +1,9 @@
-let StorageManager = artifacts.require("StorageManager");
+const { deployProxy } = require('@openzeppelin/truffle-upgrades');
 
-module.exports = function(deployer) {
-    deployer.deploy(StorageManager)
+const StorageManager = artifacts.require("StorageManager");
+const Staking = artifacts.require("Staking");
+
+module.exports = async function(deployer) {
+   const storageManager = await deployProxy(StorageManager, [], { deployer, unsafeAllowCustomTypes: true });
+   await deployer.deploy(Staking, storageManager.address); 
 }

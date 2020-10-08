@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
 const { soliditySha3 } = require('web3-utils')
-
+const upgrades = require('@openzeppelin/truffle-upgrades')
 const {
   expectEvent,
   expectRevert,
@@ -10,6 +10,8 @@ const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
 
 const StorageManager = artifacts.require('TestStorageManager')
+const StorageManagerV2 = artifacts.require('TestStorageManagerV2')
+
 const ERC20 = artifacts.require('MockERC20')
 
 function getAgreementReference (receipt) {
@@ -17,13 +19,14 @@ function getAgreementReference (receipt) {
   return soliditySha3(newAgreementEvent.args.agreementCreator, ...newAgreementEvent.args.dataReference, newAgreementEvent.args.token)
 }
 
-contract('StorageManager', ([Provider, Consumer, Owner]) => {
+contract('StorageManager', ([Owner, Consumer, Provider]) => {
   let storageManager
   let token
   const cid = [asciiToHex('/ipfs/QmSomeHash')]
 
   beforeEach(async function () {
-    storageManager = await StorageManager.new({ from: Owner })
+    storageManager = await upgrades.deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
+
     token = token = await ERC20.new('myToken', 'mT', Owner, 100000, { from: Owner })
 
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
@@ -374,10 +377,10 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
       })
       it('ERC20 token', async () => {
         await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [token.address], [], { from: Provider })
-        token.approve(storageManager.address, 2000, { from: Consumer })
+        await token.approve(storageManager.address, 2000, { from: Consumer })
         await storageManager.newAgreement(cid, Provider, 100, 10, token.address, 2000, [], [], token.address, { from: Consumer })
 
-        token.approve(storageManager.address, 100, { from: Consumer })
+        await token.approve(storageManager.address, 100, { from: Consumer })
         const receipt = await storageManager.depositFunds(token.address, 100, cid, Provider, { from: Consumer })
         expectEvent(receipt, 'AgreementFundsDeposited', {
           amount: '100'
@@ -694,6 +697,22 @@ contract('StorageManager', ([Provider, Consumer, Owner]) => {
         provider: Provider,
         capacity: '0'
       })
+    })
+  })
+
+  describe('Upgrades', () => {
+    it('should allow owner to upgrade', async () => {
+      const storageManagerUpg = await upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+      const version = await storageManagerUpg.getVersion()
+      expect(storageManagerUpg.address).to.be.eq(storageManager.address)
+      expect(version).to.be.eq('V2')
+    })
+
+    it('should not allow non-owner to upgrade', async () => {
+      await upgrades.admin.transferProxyAdminOwnership(Provider)
+      await expectRevert.unspecified(
+        upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+      )
     })
   })
 })
