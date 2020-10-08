@@ -10,6 +10,8 @@ const { asciiToHex, padRight } = require('web3-utils')
 const expect = require('chai').expect
 
 const StorageManager = artifacts.require('TestStorageManager')
+const StorageManagerV2 = artifacts.require('TestStorageManagerV2')
+
 const ERC20 = artifacts.require('MockERC20')
 
 function getAgreementReference (receipt) {
@@ -695,6 +697,22 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
         provider: Provider,
         capacity: '0'
       })
+    })
+  })
+
+  describe('Upgrades', () => {
+    it('should allow owner to upgrade', async () => {
+      const storageManagerUpg = await upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+      const version = await storageManagerUpg.getVersion()
+      expect(storageManagerUpg.address).to.be.eq(storageManager.address)
+      expect(version).to.be.eq('V2')
+    })
+
+    it('should not allow non-owner to upgrade', async () => {
+      await upgrades.admin.transferProxyAdminOwnership(Provider)
+      await expectRevert.unspecified(
+        upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+      )
     })
   })
 })
