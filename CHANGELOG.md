@@ -1,3 +1,13 @@
+<a name="0.1.0-dev.3"></a>
+# [0.1.0-dev.3](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.2...v0.1.0-dev.3) (2020-10-09)
+
+
+### Features
+
+* upgradability using truffle plugin ([#142](https://github.com/rsksmart/rif-marketplace-storage/issues/142)) ([08e6cea](https://github.com/rsksmart/rif-marketplace-storage/commit/08e6cea))
+
+
+
 <a name="0.1.0-dev.2"></a>
 # 0.1.0-dev.2 (2020-09-22)
 
