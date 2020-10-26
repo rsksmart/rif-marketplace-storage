@@ -19,7 +19,7 @@ function getAgreementReference (receipt) {
   return soliditySha3(newAgreementEvent.args.agreementCreator, ...newAgreementEvent.args.dataReference, newAgreementEvent.args.token)
 }
 
-contract('StorageManager', ([Owner, Consumer, Provider]) => {
+contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
   let storageManager
   let token
   const cid = [asciiToHex('/ipfs/QmSomeHash')]
@@ -32,6 +32,8 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
     await storageManager.setWhitelistedTokens(token.address, true, { from: Owner })
 
+    await storageManager.setWhitelistedProvider(Provider, true, { from: Owner })
+
     await token.transfer(Consumer, 10000, { from: Owner })
 
     await storageManager.setTime(100)
@@ -40,6 +42,25 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
   async function expectUtilizedCapacity (capacity) {
     expect((await storageManager.getOfferUtilizedCapacity(Provider)).toNumber()).to.eql(capacity)
   }
+
+  describe('White list of providers', () => {
+    it.only('should not be able to create an offer if not whitelisted', async () => {
+      const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
+      await expectRevert(storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider2 }),
+        'StorageManager: you are not able to create an offer'
+      )
+    })
+    // it('should be able to whitelist provider by owner')
+    // it('should not be able to whitelist provider by any other')
+    // it('should be able create offer by whitelisted provider')
+    // it('should not be able to update capacity if not white listed')
+    // it('should not be able to update billing plans if not white listed')
+    // it('should not be able to terminate offer which provider not whitelisted')
+    // it('should not be able to payout funds from offer which provider not whitelisted')
+    // it('should not be able to create agreement for offer which provider not whitelisted')
+    // it('should not be able to deposit to agreement which provider not whitelisted')
+    // it('should not be able to deposit to agreement which provider not whitelisted')
+  })
 
   describe('setOffer', () => {
     it('should create new Offer for valid inputs', async () => {
