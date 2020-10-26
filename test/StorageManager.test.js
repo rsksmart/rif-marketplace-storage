@@ -19,10 +19,10 @@ function getAgreementReference (receipt) {
   return soliditySha3(newAgreementEvent.args.agreementCreator, ...newAgreementEvent.args.dataReference, newAgreementEvent.args.token)
 }
 
-contract('StorageManager', ([Owner, Consumer, Provider]) => {
+contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
   let storageManager
   let token
-  const cid = [asciiToHex('/ipfs/QmSomeHash')]
+  const cid = [asciiToHex('/ipfs/pr9SPwWuctUmBkDVOxgtM1uiY8')]
 
   beforeEach(async function () {
     storageManager = await upgrades.deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
@@ -32,6 +32,8 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
     await storageManager.setWhitelistedTokens(token.address, true, { from: Owner })
 
+    await storageManager.setWhitelistedProvider(Provider, true, { from: Owner })
+
     await token.transfer(Consumer, 10000, { from: Owner })
 
     await storageManager.setTime(100)
@@ -40,6 +42,121 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
   async function expectUtilizedCapacity (capacity) {
     expect((await storageManager.getOfferUtilizedCapacity(Provider)).toNumber()).to.eql(capacity)
   }
+
+  describe('White list of providers', () => {
+    it('should not be able to create an offer if not whitelisted', async () => {
+      const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
+      await expectRevert(storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider2 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to whitelist provider by not owner', async () => {
+      await expectRevert(storageManager.setWhitelistedProvider(Provider2, true, { from: Provider2 }), 'Ownable: caller is not the owner')
+    })
+    it('should be able create offer by whitelisted provider', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+
+      const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
+      const receipt = await storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider2 })
+
+      expectEvent(receipt, 'TotalCapacitySet', {
+        provider: Provider2,
+        capacity: '1000'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider2,
+        token: constants.ZERO_ADDRESS,
+        period: '10',
+        price: '10'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider2,
+        token: token.address,
+        period: '20',
+        price: '20'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider2,
+        token: constants.ZERO_ADDRESS,
+        period: '100',
+        price: '80'
+      })
+      expectEvent(receipt, 'BillingPlanSet', {
+        provider: Provider2,
+        token: token.address,
+        period: '100',
+        price: '80'
+      })
+
+      // TODO: Waiting for support of asserting arrays to be released for validation of emitted message.
+      expectEvent(receipt, 'MessageEmitted')
+
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+    })
+    it('should not be able to update capacity if not white listed', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.setTotalCapacity(1000, { from: Provider2 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to update billing plans if not white listed', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.setBillingPlans([[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], { from: Provider2 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to terminate offer which provider not whitelisted', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.terminateOffer({ from: Provider2 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to payout funds from offer which provider not whitelisted', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.newAgreement(cid, Provider2, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
+      await storageManager.incrementTime(2)
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider2, { from: Provider2 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to create agreement for offer which provider not whitelisted', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.newAgreement(cid, Provider2, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+    it('should not be able to deposit to agreement which provider not whitelisted', async () => {
+      await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
+      await storageManager.newAgreement(cid, Provider2, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 2000 })
+      await storageManager.setWhitelistedProvider(Provider2, false, { from: Owner })
+
+      await expectRevert(
+        storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider2, { from: Consumer, value: 100 }),
+        'StorageManager: provider is not whitelisted'
+      )
+    })
+  })
 
   describe('setOffer', () => {
     it('should create new Offer for valid inputs', async () => {
@@ -81,16 +198,6 @@ contract('StorageManager', ([Owner, Consumer, Provider]) => {
     it('should revert for too big billing plan', async () => {
       await expectRevert(storageManager.setOffer(1000, [[1, 2, 15552101]], [[1, 2, 3]], [constants.ZERO_ADDRESS], [], { from: Provider }),
         'StorageManager: Billing period exceed max. length')
-    })
-
-    // Deprecated
-    it.skip('should revert for no billing plan', async () => {
-      await expectRevert(storageManager.setOffer(1000, [], [], [constants.ZERO_ADDRESS], [], { from: Provider }), 'StorageManager: Offer needs some billing plans')
-    })
-
-    // Deprecated
-    it.skip('should revert when billing plans array is not the same size as billing prices', async () => {
-      await expectRevert(storageManager.setOffer(1000, [[1]], [[1, 2]], [constants.ZERO_ADDRESS], [], { from: Provider }), 'StorageManager: Billing plans array length has to equal to billing prices')
     })
   })
 

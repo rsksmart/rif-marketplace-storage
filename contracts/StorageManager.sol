@@ -53,6 +53,9 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     // maps the tokenAddresses which can be used with this contract. By convention, address(0) is the native token.
     mapping(address => bool) public isWhitelistedToken;
 
+    // maps the provider addresses which can be used for dealing with offers
+    mapping(address => bool) public isWhitelistedProvider;
+
     event TotalCapacitySet(address indexed provider, uint64 capacity);
     event BillingPlanSet(address indexed provider, address token, uint64 period, uint128 price);
     event MessageEmitted(address indexed provider, bytes32[] message);
@@ -87,6 +90,15 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     }
 
     /**
+    @notice whitelist a provider or remove the provider from whitelist
+    @param providerAddress the providerAddress from whom you want to set the whitelisted
+    @param isWhiteListed whether you want to whitelist the provider or put it from the whitelist.
+    */
+    function setWhitelistedProvider(address providerAddress, bool isWhiteListed) public onlyOwner {
+        isWhitelistedProvider[providerAddress] = isWhiteListed;
+    }
+
+    /**
     >> FOR PROVIDER
     @notice set the totalCapacity and billingPlans of a Offer.
     @dev
@@ -108,6 +120,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address[] memory tokens,
         bytes32[] memory message
     ) public whenNotPaused {
+        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
         Offer storage offer = offerRegistry[msg.sender];
         setTotalCapacity(capacity);
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -122,6 +135,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param capacity the new capacity
     */
     function setTotalCapacity(uint64 capacity) public whenNotPaused {
+        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -134,6 +148,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
     function terminateOffer() public {
+        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         offer.totalCapacity = 0;
@@ -156,6 +171,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         uint128[][] memory billingPrices,
         address[] memory tokens
     ) public whenNotPaused {
+        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -198,6 +214,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address[] memory creatorsOfAgreementToPayOut,
         address tokenOfAgreementsToPayOut
     ) public payable whenNotPaused {
+        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
         Offer storage offer = offerRegistry[provider];
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
         require(size > 0, "StorageManager: Size has to be bigger then 0");
@@ -271,6 +288,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param provider the address of the provider of the Offer.
     */
     function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused {
+        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         Offer storage offer = offerRegistry[provider];
@@ -362,6 +380,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address tokensOfAgreementsToPayOut,
         address payable provider
     ) public {
+        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
         _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
     }
 
