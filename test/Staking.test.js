@@ -32,6 +32,8 @@ contract('Staking', ([randomPerson, staker]) => {
     // White list native token
     await staking.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: randomPerson })
+    // White list provider
+    await storageManager.setWhitelistedProvider(staker, true, { from: randomPerson })
 
     // distribute tokens
     await token.transfer(staker, 10000, { from: randomPerson })

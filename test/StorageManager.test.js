@@ -22,7 +22,7 @@ function getAgreementReference (receipt) {
 contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
   let storageManager
   let token
-  const cid = [asciiToHex('/ipfs/QmSomeHash')]
+  const cid = [asciiToHex('/ipfs/pr9SPwWuctUmBkDVOxgtM1uiY8')]
 
   beforeEach(async function () {
     storageManager = await upgrades.deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
@@ -123,7 +123,7 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
         'StorageManager: provider is not whitelisted'
       )
     })
-    it.skip('should not be able to payout funds from offer which provider not whitelisted', async () => {
+    it('should not be able to payout funds from offer which provider not whitelisted', async () => {
       await storageManager.setWhitelistedProvider(Provider2, true, { from: Owner })
       await storageManager.setOffer(1000, [[1, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider2 })
       await storageManager.newAgreement(cid, Provider2, 100, 1, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 5000 })
