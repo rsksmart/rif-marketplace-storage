@@ -1,4 +1,5 @@
-pragma solidity 0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
@@ -25,8 +26,8 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
      - agreementRegistry: the proposed and accepted Agreement
     */
     struct Offer {
-        uint128 utilizedCapacity;
-        uint128 totalCapacity;
+        uint64 utilizedCapacity;
+        uint64 totalCapacity;
         mapping(address => mapping(uint64 => uint128)) billingPlansForToken;
         mapping(bytes32 => Agreement) agreementRegistry; // link to agreement that are accepted under this offer
     }
@@ -64,7 +65,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         bytes32[] dataReference,
         address indexed agreementCreator,
         address indexed provider,
-        uint128 size,
+        uint64 size,
         uint64 billingPeriod,
         uint128 billingPrice,
         address token,
@@ -352,7 +353,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             require(amount > 0, "StorageManager: Nothing to withdraw");
 
             if(token == address(0)) {
-                (bool success,) = msg.sender.call.value(amount)("");
+                (bool success,) = msg.sender.call{value: amount}("");
                 require(success, "Transfer failed.");
             } else {
                 require(IERC20(token).transfer(msg.sender, amount), "StorageManager: not allowed to deposit tokens from token contract");
@@ -454,10 +455,10 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
 
         if(toTransfer > 0){
             if(tokenOfAgreementsToPayOut == address(0)) {
-                (bool success,) = provider.call.value(toTransfer)("");
+                (bool success,) = provider.call{value: toTransfer}("");
                 require(success, "StorageManager: Transfer failed.");
             } else {
-                assert(IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer));
+                require(IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer), "StorageManager: Token transfer failed.");
             }
         }
     }
