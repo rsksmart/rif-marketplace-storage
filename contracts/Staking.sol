@@ -1,7 +1,9 @@
-pragma solidity 0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.12;
 
 import "./StorageManager.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title staking
@@ -11,6 +13,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Staking is Ownable {
 
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     StorageManager public storageManager;
     // amount of tokens per token staked per address [account -> (tokenAddress -> amount)]
@@ -78,11 +81,11 @@ contract Staking is Ownable {
             amount = msg.value;
             tokenAddress = address(0);
         } else {
-            require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Staking: could not transfer tokens");
+            IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), amount);
         }
         _amountStaked[user][tokenAddress] = _amountStaked[user][tokenAddress].add(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].add(amount);
-        emit Staked(msg.sender, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
+        emit Staked(user, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
     }
 
     /**
@@ -98,10 +101,10 @@ contract Staking is Ownable {
         // only allow unstake if there is no utilized capacity
         require(!storageManager.hasUtilizedCapacity(msg.sender), "Staking: must have no utilized capacity in StorageManager");
         if(_isNativeToken(tokenAddress)) {
-            (bool success,) = msg.sender.call.value(amount)("");
+            (bool success,) = msg.sender.call{value: amount}("");
             require(success, "Transfer failed.");
         } else {
-            IERC20(tokenAddress).transfer(msg.sender, amount);
+            IERC20(tokenAddress).safeTransfer(msg.sender, amount);
         }
         _amountStaked[msg.sender][tokenAddress] = _amountStaked[msg.sender][tokenAddress].sub(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
