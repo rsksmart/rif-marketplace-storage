@@ -1,3 +1,13 @@
+<a name="0.1.0-dev.6"></a>
+# [0.1.0-dev.6](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.4...v0.1.0-dev.6) (2020-11-12)
+
+
+### Features
+
+* white list providers ([#152](https://github.com/rsksmart/rif-marketplace-storage/issues/152)) ([7ccd664](https://github.com/rsksmart/rif-marketplace-storage/commit/7ccd664))
+
+
+
 <a name="0.1.0-dev.5"></a>
 # [0.1.0-dev.5](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.4...v0.1.0-dev.5) (2020-10-27)
 
