@@ -16,6 +16,18 @@ The message is is initially intended to allow the `Provider` to communicate his 
 The client should be instructed to enforce the following semantics:
 - If `message` starts with `0x01`, then the following bits contain an arbitrary length `nodeID`.
 
+## TypeScript typings
+
+There are TypeScript typing definitions of the contracts published together with the original contracts in folder `/types`.
+Supported contract's libraries are:
+
+* `web3` version 1.* - `web3-v1-contracts`
+* `web3` version 2.* - `web3-v2-contracts`
+* `truffle` - `truffle-contracts`
+* `ethers` - `ethers-contracts`
+
+So for example if you want to use Truffle typings then you should import the contract from `@rsksmart/rif-marketplace-storage/types/truffle/...`.
+
 ## Glossary
 
  - Actors
