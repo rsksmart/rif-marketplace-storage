@@ -495,6 +495,16 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
       })
     })
 
+    it('should allow deposit funds when there is only last active period running', async () => {
+      await storageManager.setOffer(1000, [[10, 100]], [[10, 80]], [constants.ZERO_ADDRESS], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 10, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 1000 })
+
+      const receipt = await storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 })
+      expectEvent(receipt, 'AgreementFundsDeposited', {
+        amount: '100'
+      })
+    })
+
     it('should revert when offer does not exists', async () => {
       await expectRevert(storageManager.depositFunds(constants.ZERO_ADDRESS, 0, cid, Provider, { from: Consumer, value: 100 }),
         'StorageManager: Offer for this Provider doesn\'t exist')
@@ -707,6 +717,16 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
       await storageManager.setOffer(1000, [[1, 100]], [[10, 100]], [constants.ZERO_ADDRESS], [], { from: Provider })
       await storageManager.newAgreement(cid, Provider, 100, 100, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 50000 })
       await storageManager.incrementTime(2)
+
+      const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
+      expectEvent.notEmitted(receipt, 'AgreementFundsPayout')
+      expectEvent.notEmitted(receipt, 'AgreementStopped')
+    })
+
+    it('should not be able to payout currently running period', async () => {
+      await storageManager.setOffer(1000, [[1, 100]], [[10, 100]], [constants.ZERO_ADDRESS], [], { from: Provider })
+      await storageManager.newAgreement(cid, Provider, 100, 100, constants.ZERO_ADDRESS, 0, [], [], constants.ZERO_ADDRESS, { from: Consumer, value: 50000 })
+      await storageManager.incrementTime(50) // In the middle of
 
       const receipt = await storageManager.payoutFunds([cid], [Consumer], constants.ZERO_ADDRESS, Provider, { from: Provider })
       expectEvent.notEmitted(receipt, 'AgreementFundsPayout')
