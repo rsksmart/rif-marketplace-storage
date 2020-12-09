@@ -298,7 +298,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
         require(offer.billingPlansForToken[token][agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
-        require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) > agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
+        require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) >= agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
         if(token == address(0)) {
             // amount is taken from msg.value and not from function argument
             agreement.availableFunds = agreement.availableFunds.add(msg.value);
