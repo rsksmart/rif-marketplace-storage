@@ -1,3 +1,13 @@
+<a name="0.1.0-dev.7"></a>
+# [0.1.0-dev.7](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.6...v0.1.0-dev.7) (2020-12-09)
+
+
+### Bug Fixes
+
+* deposit funds when only one last period is running ([#174](https://github.com/rsksmart/rif-marketplace-storage/issues/174)) ([ceef7e5](https://github.com/rsksmart/rif-marketplace-storage/commit/ceef7e5))
+
+
+
 <a name="0.1.0-dev.6"></a>
 # [0.1.0-dev.6](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.4...v0.1.0-dev.6) (2020-11-12)
 
