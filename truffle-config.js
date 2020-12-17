@@ -24,6 +24,17 @@
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
+const fs = require('fs');
+const HDWalletProvider = require('@truffle/hdwallet-provider');
+
+ let mnemonic;
+ try {
+   mnemonic = fs.readFileSync('.secret').toString().trim();
+ } catch {
+   mnemonic = 'INVALID';
+ }
+
+ 
 module.exports = {
   plugins: ['truffle-security'],
 
@@ -42,7 +53,15 @@ module.exports = {
       host: '127.0.0.1', // Localhost (default: none)
       port: 8545, // Standard Ethereum port (default: none)
       network_id: '*' // Any network (default: none)
-    }
+    },
+    testnet: {
+      //provider: () => new HDWalletProvider(mnemonic, 'http://localhost:7777/'),
+      provider: () => new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co'),
+      network_id: 31,
+      gasPrice: 700000000,
+      gas: 6800000,  
+      networkCheckTimeout: 10e3
+    },
     // Useful for testing. The `development` name is special - truffle uses it by default
     // if it's defined here and no other network is specified at the command line.
     // You should run a client (like ganache-cli, geth or parity) in a separate terminal
