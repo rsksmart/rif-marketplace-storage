@@ -40,7 +40,7 @@ contract Staking is Ownable {
     @notice set Storage Manager contract
     @param _storageContract the storageManager which uses this staking contract
     */
-    function setStorageManager(address _storageContract) public onlyOwner {
+    function setStorageManager(address _storageContract) external onlyOwner {
         storageManager = StorageManager(_storageContract);
     }
 
@@ -49,7 +49,7 @@ contract Staking is Ownable {
     @param token the token from whom you want to set the whitelisted
     @param isWhiteListed whether you want to whitelist the token or put it from the whitelist.
     */
-    function setWhitelistedTokens (address token, bool isWhiteListed) public onlyOwner {
+    function setWhitelistedTokens (address token, bool isWhiteListed) external onlyOwner {
         isWhitelistedToken[token] = isWhiteListed;
     }
 
@@ -61,7 +61,7 @@ contract Staking is Ownable {
     @param token Token address
     @param data should be disregarded for the current deployment
     */
-    function stake(uint256 amount, address token, bytes memory data) public payable {
+    function stake(uint256 amount, address token, bytes memory data) external payable {
         stakeFor(amount, msg.sender, token, data);
     }
 
@@ -74,17 +74,16 @@ contract Staking is Ownable {
     @param tokenAddress Token address
     @param data should be disregarded for the current deployment
      */
-    function stakeFor(uint256 amount, address user, address tokenAddress, bytes memory data) public payable {
-        require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
+    function stakeFor(uint256 amount, address user, address tokenAddress, bytes memory data) public payable whitelistedToken(tokenAddress) {
         // disregard passed-in amount
         if(_isNativeToken(tokenAddress)) {
             amount = msg.value;
-            tokenAddress = address(0);
-        } else {
-            IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), amount);
         }
         _amountStaked[user][tokenAddress] = _amountStaked[user][tokenAddress].add(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].add(amount);
+        if(!_isNativeToken(tokenAddress)) {
+            IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), amount);
+        }
         emit Staked(user, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
     }
 
@@ -96,46 +95,53 @@ contract Staking is Ownable {
     @param tokenAddress Token address
     @param data should be disregarded for the current deployment
      */
-    function unstake(uint256 amount, address tokenAddress, bytes memory data) public {
-        require(isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
+    function unstake(uint256 amount, address tokenAddress, bytes memory data) external whitelistedToken(tokenAddress) {
         // only allow unstake if there is no utilized capacity
         require(!storageManager.hasUtilizedCapacity(msg.sender), "Staking: must have no utilized capacity in StorageManager");
+        _amountStaked[msg.sender][tokenAddress] = _amountStaked[msg.sender][tokenAddress].sub(amount);
+        _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
         if(_isNativeToken(tokenAddress)) {
             (bool success,) = msg.sender.call{value: amount}("");
             require(success, "Transfer failed.");
         } else {
             IERC20(tokenAddress).safeTransfer(msg.sender, amount);
         }
-        _amountStaked[msg.sender][tokenAddress] = _amountStaked[msg.sender][tokenAddress].sub(amount);
-        _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
         emit Unstaked(msg.sender, amount, _amountStaked[msg.sender][tokenAddress], tokenAddress, data);
+    }
+
+    /**
+    @notice modifier for whitelisted token
+     */
+    modifier whitelistedToken (address tokenAddress) {
+        require(this.isInWhiteList(tokenAddress), "Staking: not possible to interact with this token");
+        _;
     }
 
     /**
     @notice return true if token whitelisted
      */
-    function isInWhiteList (address token) public view returns (bool) {
+    function isInWhiteList (address token) external view returns (bool) {
         return isWhitelistedToken[token];
     }
 
     /**
     @notice returns the amount staked for the specific token
     */
-    function totalStaked (address token) public view returns (uint256) {
+    function totalStaked (address token) external view returns (uint256) {
         return _totalStaked[token];
     }
 
     /**
     @notice returns the amount staked for the specific user and token
      */
-    function totalStakedFor(address user, address token) public view returns (uint256) {
+    function totalStakedFor(address user, address token) external view returns (uint256) {
         return _amountStaked[user][token];
     }
 
     /**
     @notice contract does not support history functions (lastStakedFor, totalStakedForAt, totalStakedAt)
      */
-    function supportsHistory() public pure returns (bool) {
+    function supportsHistory() external pure returns (bool) {
         return false;
     }
 
