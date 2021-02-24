@@ -10,11 +10,11 @@ contract TestStorageManager is StorageManager {
         return time;
     }
 
-    function incrementTime(uint increment) public {
+    function incrementTime(uint increment) external {
         time = time + increment;
     }
 
-    function setTime(uint newTime) public {
+    function setTime(uint newTime) external {
         time = newTime;
     }
 

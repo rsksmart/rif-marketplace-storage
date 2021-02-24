@@ -120,8 +120,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         uint128[][] memory billingPrices,
         address[] memory tokens,
         bytes32[] memory message
-    ) public whenNotPaused {
-        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
+    ) public whenNotPaused whitelistedProvider(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
         setTotalCapacity(capacity);
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -135,8 +134,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @notice sets total capacity of Offer.
     @param capacity the new capacity
     */
-    function setTotalCapacity(uint64 capacity) public whenNotPaused {
-        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
+    function setTotalCapacity(uint64 capacity) public whenNotPaused whitelistedProvider(msg.sender) {
         require(capacity != 0, "StorageManager: Capacity has to be greater then zero");
         Offer storage offer = offerRegistry[msg.sender];
         offer.totalCapacity = capacity;
@@ -148,8 +146,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @notice stops the Offer. It sets the totalCapacity to 0 which indicates terminated Offer.
     @dev no new Agreement can be created and no existing Agreement can be prolonged. All existing Agreement are still valid for the amount of periods still deposited.
     */
-    function terminateOffer() public {
-        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
+    function terminateOffer() public whitelistedProvider(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         offer.totalCapacity = 0;
@@ -171,8 +168,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         uint64[][] memory billingPeriods,
         uint128[][] memory billingPrices,
         address[] memory tokens
-    ) public whenNotPaused {
-        require(isWhitelistedProvider[msg.sender], "StorageManager: provider is not whitelisted");
+    ) public whenNotPaused whitelistedProvider(msg.sender) {
         Offer storage offer = offerRegistry[msg.sender];
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         _setBillingPlansWithMultipleTokens(offer, billingPeriods, billingPrices, tokens);
@@ -215,6 +211,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address[] memory creatorsOfAgreementToPayOut,
         address tokenOfAgreementsToPayOut
     ) public payable whenNotPaused {
+        // Can not use modifier for this check as getting error that stack to deep
         require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
         Offer storage offer = offerRegistry[provider];
         require(billingPeriod != 0, "StorageManager: Billing period of 0 not allowed");
@@ -246,14 +243,12 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
         // Adding to previous availableFunds as the agreement could have been expired
         // and Consumer is reactivating it, so in order not to loose any previous funds.
-        if(token == address(0)) {
-            agreement.availableFunds = agreement.availableFunds.add(msg.value);
-        } else {
-            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
-            agreement.availableFunds = agreement.availableFunds.add(amount);
+        if (_isNativeToken(token)) {
+            amount = msg.value;
         }
-        require(agreement.availableFunds >= size.mul(billingPrice), "StorageManager: Funds deposited has to be for at least one billing period");
 
+        agreement.availableFunds = agreement.availableFunds.add(amount);
+        require(agreement.availableFunds >= size.mul(billingPrice), "StorageManager: Funds deposited has to be for at least one billing period");
         agreement.size = size;
         agreement.billingPrice = billingPrice;
         agreement.billingPeriod = billingPeriod;
@@ -265,6 +260,9 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         offer.utilizedCapacity = uint64(offer.utilizedCapacity.add(size));
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
+        if (!_isNativeToken(token)) {
+            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+        }
         emit NewAgreement(
             dataReference,
             msg.sender,
@@ -288,8 +286,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused {
-        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
+    function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused whitelistedProvider(provider) {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         Offer storage offer = offerRegistry[provider];
@@ -299,15 +296,15 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
         require(offer.billingPlansForToken[token][agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
         require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) >= agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
-        if(token == address(0)) {
-            // amount is taken from msg.value and not from function argument
-            agreement.availableFunds = agreement.availableFunds.add(msg.value);
-            emit AgreementFundsDeposited(agreementReference, msg.value, token);
-        } else {
+        if (_isNativeToken(token)) {
+            amount = msg.value;
+        }
+        if(!_isNativeToken(token)) {
             // contract must be allowed to transfer
             require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
-            emit AgreementFundsDeposited(agreementReference, amount, token);
         }
+        agreement.availableFunds = agreement.availableFunds.add(amount);
+        emit AgreementFundsDeposited(agreementReference, amount, token);
     }
 
     /**
@@ -352,7 +349,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             agreement.availableFunds = agreement.availableFunds.sub(amount);
             require(amount > 0, "StorageManager: Nothing to withdraw");
 
-            if(token == address(0)) {
+            if(_isNativeToken(token)) {
                 (bool success,) = msg.sender.call{value: amount}("");
                 require(success, "Transfer failed.");
             } else {
@@ -380,8 +377,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address[] memory creatorsOfAgreementToPayOut,
         address tokensOfAgreementsToPayOut,
         address payable provider
-    ) public {
-        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
+    ) public whitelistedProvider(provider) {
         _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
     }
 
@@ -454,7 +450,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         }
 
         if(toTransfer > 0){
-            if(tokenOfAgreementsToPayOut == address(0)) {
+            if(_isNativeToken(tokenOfAgreementsToPayOut)) {
                 (bool success,) = provider.call{value: toTransfer}("");
                 require(success, "StorageManager: Transfer failed.");
             } else {
@@ -524,5 +520,17 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     */
     function _time() internal view virtual returns (uint) {
         return now;
+    }
+
+    /**
+    @notice if use a native token
+     */
+    function _isNativeToken(address token) internal pure returns (bool) {
+        return token == address(0);
+    }
+
+    modifier whitelistedProvider (address provider) {
+        require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
+        _;
     }
 }
