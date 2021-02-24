@@ -89,10 +89,10 @@ contract Staking is Ownable {
         }
         _amountStaked[user][tokenAddress] = _amountStaked[user][tokenAddress].add(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].add(amount);
+        emit Staked(user, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
         if (!_isNativeToken(tokenAddress)) {
             IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), amount);
         }
-        emit Staked(user, amount, _amountStaked[user][tokenAddress], tokenAddress, data);
     }
 
     /**
@@ -115,13 +115,13 @@ contract Staking is Ownable {
         );
         _amountStaked[msg.sender][tokenAddress] = _amountStaked[msg.sender][tokenAddress].sub(amount);
         _totalStaked[tokenAddress] = _totalStaked[tokenAddress].sub(amount);
+        emit Unstaked(msg.sender, amount, _amountStaked[msg.sender][tokenAddress], tokenAddress, data);
         if (_isNativeToken(tokenAddress)) {
             (bool success, ) = msg.sender.call{value: amount}("");
             require(success, "Transfer failed.");
         } else {
             IERC20(tokenAddress).safeTransfer(msg.sender, amount);
         }
-        emit Unstaked(msg.sender, amount, _amountStaked[msg.sender][tokenAddress], tokenAddress, data);
     }
 
     /**

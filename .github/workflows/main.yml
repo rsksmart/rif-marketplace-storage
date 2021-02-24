@@ -1,0 +1,26 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the action will run.
+on: [push, workflow_dispatch]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  main_job:
+    runs-on: ubuntu-latest
+    name: Solidity Security
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Slither Static Analysis
+        uses: luisfontes19/slither-static-analysis-action@v0.3.1
+        with:
+          slither-version: '0.6.13'
+          run-npm-install: true
+          high-threshold: 4
+          medium-threshold: 8
+          low-threshold: 10
+          optimization-threshold: 32
+          informative-threshold: 50
+          projectPath: "."
