@@ -12,11 +12,10 @@ import "@openzeppelin/contracts-ethereum-package/contracts/utils/Pausable.sol";
 /// @author Adam Uhlir <adam@iovlabs.org>
 /// @notice Providers can offer their storage space and list their price and Consumers can take these offers
 contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
-
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SafeMath for uint64;
-    uint64 constant private MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
+    uint64 private constant MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
 
     /*
     Offer represents:
@@ -77,8 +76,8 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     event AgreementStopped(bytes32 indexed agreementReference);
 
     function initialize() public initializer {
-      __Ownable_init();
-      __Pausable_init();
+        __Ownable_init();
+        __Pausable_init();
     }
 
     /**
@@ -115,7 +114,8 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param tokens the tokens for which an offer is made. By convention, address(0) is the native currency.
     @param message the Provider may include a message (e.g. his nodeID).  Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
-    function setOffer(uint64 capacity,
+    function setOffer(
+        uint64 capacity,
         uint64[][] memory billingPeriods,
         uint128[][] memory billingPrices,
         address[] memory tokens,
@@ -178,7 +178,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     >> FOR PROVIDER
     @param message the Provider may send a message (e.g. his nodeID). Message should be structured such that the first two bits specify the message type, followed with the message). 0x01 == nodeID
     */
-    function emitMessage(bytes32[]memory message) public {
+    function emitMessage(bytes32[] memory message) public {
         _emitMessage(message);
     }
 
@@ -218,10 +218,15 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         require(size > 0, "StorageManager: Size has to be bigger then 0");
         require(offer.totalCapacity != 0, "StorageManager: Offer for this Provider doesn't exist");
         require(isWhitelistedToken[token], "StorageManager: not possible to interact witht this token");
-         // Allow to enforce payout funds and close of agreements that are already expired,
+        // Allow to enforce payout funds and close of agreements that are already expired,
         // which should free needed capacity, if the capacity is becoming depleted.
         if (dataReferencesOfAgreementToPayOut.length > 0) {
-            _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokenOfAgreementsToPayOut, payable(provider));
+            _payoutFunds(
+                dataReferencesOfAgreementToPayOut,
+                creatorsOfAgreementToPayOut,
+                tokenOfAgreementsToPayOut,
+                payable(provider)
+            );
         }
         // the agreementReference consists of the hash of the dataReference, msg.sender and the tokenAdddress, to allow:
         // - multiple people to register an agreement for the same file
@@ -230,7 +235,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
         // If the current agreement is still running (but for example already expired, eq. ran out of the funds in past)
         // we need to payout all the funds. AgreementStopped can be emitted as part of this call if no
-        if(offer.agreementRegistry[agreementReference].lastPayoutDate != 0){
+        if (offer.agreementRegistry[agreementReference].lastPayoutDate != 0) {
             bytes32[][] memory dataReferenceOfAgreementToPayout = new bytes32[][](1);
             address[] memory creators = new address[](1);
             dataReferenceOfAgreementToPayout[0] = dataReference;
@@ -248,7 +253,10 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         }
 
         agreement.availableFunds = agreement.availableFunds.add(amount);
-        require(agreement.availableFunds >= size.mul(billingPrice), "StorageManager: Funds deposited has to be for at least one billing period");
+        require(
+            agreement.availableFunds >= size.mul(billingPrice),
+            "StorageManager: Funds deposited has to be for at least one billing period"
+        );
         agreement.size = size;
         agreement.billingPrice = billingPrice;
         agreement.billingPeriod = billingPeriod;
@@ -261,7 +269,10 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         if (!_isNativeToken(token)) {
-            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+            require(
+                IERC20(token).transferFrom(msg.sender, address(this), amount),
+                "StorageManager: not allowed to deposit tokens from token contract"
+            );
         }
         emit NewAgreement(
             dataReference,
@@ -286,7 +297,12 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param dataReference data reference where should be deposited funds.
     @param provider the address of the provider of the Offer.
     */
-    function depositFunds(address token, uint256 amount, bytes32[] memory dataReference, address provider) public payable whenNotPaused whitelistedProvider(provider) {
+    function depositFunds(
+        address token,
+        uint256 amount,
+        bytes32[] memory dataReference,
+        address provider
+    ) public payable whenNotPaused whitelistedProvider(provider) {
         bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         Offer storage offer = offerRegistry[provider];
@@ -294,14 +310,23 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         Agreement storage agreement = offer.agreementRegistry[agreementReference];
         require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
         require(agreement.lastPayoutDate != 0, "StorageManager: Agreement not active");
-        require(offer.billingPlansForToken[token][agreement.billingPeriod] == agreement.billingPrice, "StorageManager: Price not available anymore");
-        require(agreement.availableFunds.sub(_calculateSpentFunds(agreement)) >= agreement.billingPrice.mul(agreement.size), "StorageManager: Agreement already ran out of funds");
+        require(
+            offer.billingPlansForToken[token][agreement.billingPeriod] == agreement.billingPrice,
+            "StorageManager: Price not available anymore"
+        );
+        require(
+            agreement.availableFunds.sub(_calculateSpentFunds(agreement)) >= agreement.billingPrice.mul(agreement.size),
+            "StorageManager: Agreement already ran out of funds"
+        );
         if (_isNativeToken(token)) {
             amount = msg.value;
         }
-        if(!_isNativeToken(token)) {
+        if (!_isNativeToken(token)) {
             // contract must be allowed to transfer
-            require(IERC20(token).transferFrom(msg.sender, address(this), amount), "StorageManager: not allowed to deposit tokens from token contract");
+            require(
+                IERC20(token).transferFrom(msg.sender, address(this), amount),
+                "StorageManager: not allowed to deposit tokens from token contract"
+            );
         }
         agreement.availableFunds = agreement.availableFunds.add(amount);
         emit AgreementFundsDeposited(agreementReference, amount, token);
@@ -326,7 +351,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         uint256[] memory amounts
     ) public {
         Offer storage offer = offerRegistry[provider];
-        for(uint256 i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; i++) {
             uint256 amount = amounts[i];
             address token = tokens[i];
             bytes32 agreementReference = getAgreementReference(dataReference, msg.sender, token);
@@ -339,7 +364,9 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             } else {
                 // Consumer can withdraw all funds except for those already used for past storage hosting
                 // AND for current period
-                maxWithdrawableFunds = agreement.availableFunds.sub(_calculateSpentFunds(agreement)).sub((agreement.billingPrice * agreement.size));
+                maxWithdrawableFunds = agreement.availableFunds.sub(_calculateSpentFunds(agreement)).sub(
+                    (agreement.billingPrice * agreement.size)
+                );
             }
 
             if (amount == 0) {
@@ -349,16 +376,18 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             agreement.availableFunds = agreement.availableFunds.sub(amount);
             require(amount > 0, "StorageManager: Nothing to withdraw");
 
-            if(_isNativeToken(token)) {
-                (bool success,) = msg.sender.call{value: amount}("");
+            if (_isNativeToken(token)) {
+                (bool success, ) = msg.sender.call{value: amount}("");
                 require(success, "Transfer failed.");
             } else {
-                require(IERC20(token).transfer(msg.sender, amount), "StorageManager: not allowed to deposit tokens from token contract");
+                require(
+                    IERC20(token).transfer(msg.sender, amount),
+                    "StorageManager: not allowed to deposit tokens from token contract"
+                );
             }
             emit AgreementFundsWithdrawn(agreementReference, amount, token);
         }
     }
-
 
     /**
     >> FOR PROVIDER
@@ -378,7 +407,12 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         address tokensOfAgreementsToPayOut,
         address payable provider
     ) public whitelistedProvider(provider) {
-        _payoutFunds(dataReferencesOfAgreementToPayOut, creatorsOfAgreementToPayOut, tokensOfAgreementsToPayOut, provider);
+        _payoutFunds(
+            dataReferencesOfAgreementToPayOut,
+            creatorsOfAgreementToPayOut,
+            tokensOfAgreementsToPayOut,
+            provider
+        );
     }
 
     /**
@@ -407,7 +441,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         }
     }
 
-    function hasUtilizedCapacity(address storer) public view returns(bool) {
+    function hasUtilizedCapacity(address storer) public view returns (bool) {
         return (offerRegistry[storer].utilizedCapacity != 0);
     }
 
@@ -422,14 +456,19 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         uint256 toTransfer;
 
         for (uint8 i = 0; i < dataReferenceOfAgreementToPayOut.length; i++) {
-            bytes32 agreementReference = getAgreementReference(dataReferenceOfAgreementToPayOut[i], creatorsOfAgreementToPayOut[i], tokenOfAgreementsToPayOut);
+            bytes32 agreementReference =
+                getAgreementReference(
+                    dataReferenceOfAgreementToPayOut[i],
+                    creatorsOfAgreementToPayOut[i],
+                    tokenOfAgreementsToPayOut
+                );
             Agreement storage agreement = offer.agreementRegistry[agreementReference];
             require(agreement.size != 0, "StorageManager: Agreement for this Offer doesn't exist");
             // Was already payed out and terminated
             require(agreement.lastPayoutDate != 0, "StorageManager: Agreement is inactive");
 
             uint256 spentFunds = _calculateSpentFunds(agreement);
-            if(spentFunds > 0){
+            if (spentFunds > 0) {
                 agreement.availableFunds = agreement.availableFunds.sub(spentFunds);
                 toTransfer = toTransfer.add(spentFunds);
 
@@ -441,7 +480,8 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
                     // Add back capacity
                     offer.utilizedCapacity = uint64(offer.utilizedCapacity.sub(agreement.size));
                     emit AgreementStopped(agreementReference);
-                } else {// Provider called this during active agreement which has still funds to run
+                } else {
+                    // Provider called this during active agreement which has still funds to run
                     agreement.lastPayoutDate = uint128(_time());
                 }
 
@@ -449,12 +489,15 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             }
         }
 
-        if(toTransfer > 0){
-            if(_isNativeToken(tokenOfAgreementsToPayOut)) {
-                (bool success,) = provider.call{value: toTransfer}("");
+        if (toTransfer > 0) {
+            if (_isNativeToken(tokenOfAgreementsToPayOut)) {
+                (bool success, ) = provider.call{value: toTransfer}("");
                 require(success, "StorageManager: Transfer failed.");
             } else {
-                require(IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer), "StorageManager: Token transfer failed.");
+                require(
+                    IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer),
+                    "StorageManager: Token transfer failed."
+                );
             }
         }
     }
@@ -483,7 +526,11 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     @param creator the creator of the agreement
     @param token the token, which is used as a means of payment for the agreement.
     */
-    function getAgreementReference(bytes32[] memory dataReference, address creator, address token) public pure returns (bytes32) {
+    function getAgreementReference(
+        bytes32[] memory dataReference,
+        address creator,
+        address token
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(creator, dataReference, token));
     }
 
@@ -504,7 +551,12 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     /*
     @dev Only non-zero prices periods are considered to be active. To remove a period, set it's price to 0
     */
-    function _setBillingPlanForToken(Offer storage offer, address token, uint64 period, uint128 price) internal {
+    function _setBillingPlanForToken(
+        Offer storage offer,
+        address token,
+        uint64 period,
+        uint128 price
+    ) internal {
         require(period <= MAX_BILLING_PERIOD, "StorageManager: Billing period exceed max. length");
         require(isWhitelistedToken[token], "StorageManager: Token is not whitelisted");
         offer.billingPlansForToken[token][period] = price;
@@ -518,7 +570,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     /**
     @dev Helper function for testing timing overloaded in testing contract
     */
-    function _time() internal view virtual returns (uint) {
+    function _time() internal view virtual returns (uint256) {
         return now;
     }
 
@@ -529,7 +581,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         return token == address(0);
     }
 
-    modifier whitelistedProvider (address provider) {
+    modifier whitelistedProvider(address provider) {
         require(isWhitelistedProvider[provider], "StorageManager: provider is not whitelisted");
         _;
     }
