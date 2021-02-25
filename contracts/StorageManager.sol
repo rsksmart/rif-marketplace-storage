@@ -318,18 +318,19 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             agreement.availableFunds.sub(_calculateSpentFunds(agreement)) >= agreement.billingPrice.mul(agreement.size),
             "StorageManager: Agreement already ran out of funds"
         );
-        if (_isNativeToken(token)) {
+        bool isNativeToken = _isNativeToken(token);
+        if (isNativeToken) {
             amount = msg.value;
         }
         agreement.availableFunds = agreement.availableFunds.add(amount);
-        emit AgreementFundsDeposited(agreementReference, amount, token);
-        if (!_isNativeToken(token)) {
+        if (!isNativeToken) {
             // contract must be allowed to transfer
             require(
                 IERC20(token).transferFrom(msg.sender, address(this), amount),
                 "StorageManager: not allowed to deposit tokens from token contract"
             );
         }
+        emit AgreementFundsDeposited(agreementReference, amount, token);
     }
 
     /**
@@ -376,7 +377,6 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
             agreement.availableFunds = agreement.availableFunds.sub(amount);
             require(amount > 0, "StorageManager: Nothing to withdraw");
 
-            emit AgreementFundsWithdrawn(agreementReference, amount, token);
             if (_isNativeToken(token)) {
                 (bool success, ) = msg.sender.call{value: amount}("");
                 require(success, "Transfer failed.");
@@ -386,6 +386,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
                     "StorageManager: not allowed to deposit tokens from token contract"
                 );
             }
+            emit AgreementFundsWithdrawn(agreementReference, amount, token);
         }
     }
 

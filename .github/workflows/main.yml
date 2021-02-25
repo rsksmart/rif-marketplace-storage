@@ -20,7 +20,7 @@ jobs:
           run-npm-install: true
           high-threshold: 4
           medium-threshold: 8
-          low-threshold: 10
+          low-threshold: 12
           optimization-threshold: 32
           informative-threshold: 50
           projectPath: "."
