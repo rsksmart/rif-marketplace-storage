@@ -35,7 +35,11 @@
     "test": "truffle test",
     "build": "truffle  build",
     "compile": "truffle  compile",
-    "lint": "tasegir lint",
+    "prettier:solidity": "./node_modules/.bin/prettier --write 'contracts/**/*.sol'",
+    "lint:js": "tasegir lint",
+    "lint:solidity": "solhint -f table 'contracts/**/*.sol'",
+    "lint-fix:solidity": "solhint -f table 'contracts/**/*.sol' --fix",
+    "lint": "npm run lint:js && npm run lint:solidity && npm run prettier:solidity",
     "release": "tasegir release --no-docs --no-compile --no-test --no-build",
     "prepublishOnly": "truffle compile && typechain --target=web3-v1 build/contracts/StorageManager.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/StorageManager.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/StorageManager.json && typechain --target=ethers-v4 build/contracts/StorageManager.json && typechain --target=web3-v1 build/contracts/Staking.json && typechain --target=truffle-v4 --outDir ./types/truffle-v4-contracts build/contracts/Staking.json && typechain --target=truffle-v5 --outDir ./types/truffle-v5-contracts build/contracts/Staking.json && typechain --target=ethers-v4 build/contracts/Staking.json"
   },
@@ -51,9 +55,13 @@
     "@typechain/truffle-v5": "^2.0.2",
     "@typechain/web3-v1": "^1.0.0",
     "chai": "^4.2.0",
+    "prettier": "^2.2.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.5",
+    "solhint": "^3.3.2",
+    "solhint-plugin-prettier": "0.0.5",
     "tasegir": "^1.7.1",
     "truffle": "^5.1.37",
-    "truffle-security": "^1.7.3",
+    "truffle-security": "1.7.3",
     "typechain": "^2.0.0",
     "typescript": "^4.0.2",
     "web3-utils": "^1.2.11"
@@ -71,5 +79,8 @@
     "Vojtech Simetka <vojtech@simetka.cz>",
     "dependabot-preview[bot] <27856297+dependabot-preview[bot]@users.noreply.github.com>",
     "eknir <rinkehendriksen@gmail.com>"
-  ]
+  ],
+  "prettier": {
+    "printWidth": 120
+  }
 }
