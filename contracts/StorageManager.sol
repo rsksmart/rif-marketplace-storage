@@ -3,6 +3,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Pausable.sol";
@@ -15,6 +16,8 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SafeMath for uint64;
+    using SafeERC20 for IERC20;
+
     uint64 private constant MAX_BILLING_PERIOD = 15552000; // 6 * 30 days ~~ 6 months
 
     /*
@@ -272,10 +275,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         require(offer.utilizedCapacity <= offer.totalCapacity, "StorageManager: Insufficient Offer's capacity");
 
         if (!_isNativeToken(token)) {
-            require(
-                IERC20(token).transferFrom(msg.sender, address(this), amount),
-                "StorageManager: not allowed to deposit tokens from token contract"
-            );
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         }
         emit NewAgreement(
             dataReference,
@@ -328,10 +328,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
         agreement.availableFunds = agreement.availableFunds.add(amount);
         if (!isNativeToken) {
             // contract must be allowed to transfer
-            require(
-                IERC20(token).transferFrom(msg.sender, address(this), amount),
-                "StorageManager: not allowed to deposit tokens from token contract"
-            );
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         }
         emit AgreementFundsDeposited(agreementReference, amount, token);
     }
@@ -384,10 +381,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
                 (bool success, ) = msg.sender.call{value: amount}("");
                 require(success, "Transfer failed.");
             } else {
-                require(
-                    IERC20(token).transfer(msg.sender, amount),
-                    "StorageManager: not allowed to deposit tokens from token contract"
-                );
+                IERC20(token).safeTransfer(msg.sender, amount);
             }
             emit AgreementFundsWithdrawn(agreementReference, amount, token);
         }
@@ -498,10 +492,7 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
                 (bool success, ) = provider.call{value: toTransfer}("");
                 require(success, "StorageManager: Transfer failed.");
             } else {
-                require(
-                    IERC20(tokenOfAgreementsToPayOut).transfer(provider, toTransfer),
-                    "StorageManager: Token transfer failed."
-                );
+                IERC20(tokenOfAgreementsToPayOut).safeTransfer(provider, toTransfer);
             }
         }
     }
