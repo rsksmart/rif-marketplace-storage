@@ -190,6 +190,9 @@ contract StorageManager is OwnableUpgradeSafe, PausableUpgradeSafe {
      - Provider can reject to pin data reference when it exceeds specified size.
      - The ownership of Agreement is enforced with agreementReference structure which is calculated as: hash(msg.sender, dataReference)
      - if the token is not the native currency, then the contract must be first be given allowance to transfer tokens in it's posession.
+     Contains execution of the transferFrom on external token contract before all the stage changes are performed.
+     As a result if a token will perform a callback to the StorageManager,
+     it may lead to a reentrancy attack. Hence additional attention should be paid while reviewing this method of a token before whitelisting.
     @param dataReference the reference to an Data Source, can be several things.
     @param provider the provider from which is proposed to take a Offer.
     @param size the size of the to-be-pinned file in MB (rounded up).
