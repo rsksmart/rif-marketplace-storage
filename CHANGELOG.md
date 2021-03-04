@@ -1,3 +1,13 @@
+<a name="0.1.0"></a>
+# [0.1.0](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.7...v0.1.0) (2021-03-04)
+
+
+### Features
+
+* use safe-erc20 for storage-manager ([#207](https://github.com/rsksmart/rif-marketplace-storage/issues/207)) ([aba6dec](https://github.com/rsksmart/rif-marketplace-storage/commit/aba6dec))
+
+
+
 <a name="0.1.0-dev.7"></a>
 # [0.1.0-dev.7](https://github.com/rsksmart/rif-marketplace-storage/compare/v0.1.0-dev.6...v0.1.0-dev.7) (2020-12-09)
 
