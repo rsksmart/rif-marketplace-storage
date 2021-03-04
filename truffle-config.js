@@ -18,11 +18,14 @@
  *
  */
 
-// const HDWalletProvider = require('truffle-hdwallet-provider');
-// const infuraKey = "fj4jll3k.....";
-//
-// const fs = require('fs');
-// const mnemonic = fs.readFileSync(".secret").toString().trim();
+const HDWalletProvider = require('@truffle/hdwallet-provider');
+const fs = require('fs');
+let mnemonic;
+try {
+  mnemonic = fs.readFileSync('.secret').toString().trim();
+} catch {
+  mnemonic = 'INVALID';
+}
 
 module.exports = {
   plugins: ['truffle-security'],
@@ -42,7 +45,7 @@ module.exports = {
       host: '127.0.0.1', // Localhost (default: none)
       port: 8545, // Standard Ethereum port (default: none)
       network_id: '*' // Any network (default: none)
-    }
+    },
     // Useful for testing. The `development` name is special - truffle uses it by default
     // if it's defined here and no other network is specified at the command line.
     // You should run a client (like ganache-cli, geth or parity) in a separate terminal
@@ -60,6 +63,13 @@ module.exports = {
     // },
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
+    testnet: {
+      provider: () => new HDWalletProvider(mnemonic, 'http://localhost:7777/'),
+      //provider: () => new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co'),
+      network_id: 31,
+      gasPrice: 900000000,
+      networkCheckTimeout: 10e3
+    },
     // ropsten: {
     // provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
     // network_id: 3,       // Ropsten's id
