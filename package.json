@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-marketplace-storage",
-  "version": "0.1.0-dev.7",
+  "version": "0.1.0",
   "description": "Contracts for incentivized pinning",
   "keywords": [
     "RIF",
