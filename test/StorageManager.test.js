@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-var-requires,no-undef */
 const { soliditySha3 } = require('web3-utils')
-const upgrades = require('@openzeppelin/truffle-upgrades')
+const {
+  upgradeProxy, deployProxy,
+  admin: { transferProxyAdminOwnership }, silenceWarnings
+} = require('@openzeppelin/truffle-upgrades')
 const {
   expectEvent,
   expectRevert,
@@ -24,9 +27,12 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
   let token
   const cid = [asciiToHex('/ipfs/pr9SPwWuctUmBkDVOxgtM1uiY8')]
 
-  beforeEach(async function () {
-    storageManager = await upgrades.deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
+  before(async () => {
+    await silenceWarnings()
+  })
 
+  beforeEach(async function () {
+    storageManager = await deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
     token = await ERC20.new('myToken', 'mT', Owner, 100000, { from: Owner })
 
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
@@ -829,16 +835,16 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
 
   describe('Upgrades', () => {
     it('should allow owner to upgrade', async () => {
-      const storageManagerUpg = await upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+      const storageManagerUpg = await upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
       const version = await storageManagerUpg.getVersion()
       expect(storageManagerUpg.address).to.be.eq(storageManager.address)
       expect(version).to.be.eq('V2')
     })
 
     it('should not allow non-owner to upgrade', async () => {
-      await upgrades.admin.transferProxyAdminOwnership(Provider)
+      await transferProxyAdminOwnership(Provider)
       await expectRevert.unspecified(
-        upgrades.upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
+        upgradeProxy(storageManager.address, StorageManagerV2, { unsafeAllowCustomTypes: true })
       )
     })
   })
