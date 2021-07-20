@@ -27,7 +27,7 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
   beforeEach(async function () {
     storageManager = await upgrades.deployProxy(StorageManager, [], { unsafeAllowCustomTypes: true })
 
-    token = token = await ERC20.new('myToken', 'mT', Owner, 100000, { from: Owner })
+    token = await ERC20.new('myToken', 'mT', Owner, 100000, { from: Owner })
 
     await storageManager.setWhitelistedTokens(constants.ZERO_ADDRESS, true, { from: Owner })
     await storageManager.setWhitelistedTokens(token.address, true, { from: Owner })
