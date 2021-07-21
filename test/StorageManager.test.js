@@ -10,7 +10,7 @@ const {
   constants
 } = require('@openzeppelin/test-helpers')
 const { asciiToHex, padRight } = require('web3-utils')
-const expect = require('chai').expect
+const { expect } = require('chai')
 
 const StorageManager = artifacts.require('TestStorageManager')
 const StorageManagerV2 = artifacts.require('TestStorageManagerV2')
