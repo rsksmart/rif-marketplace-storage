@@ -17,7 +17,7 @@ const StorageManagerV2 = artifacts.require('TestStorageManagerV2')
 
 const ERC20 = artifacts.require('MockERC20')
 
-function getAgreementReference(receipt) {
+function getAgreementReference (receipt) {
   const newAgreementEvent = receipt.logs.find(e => e.event === 'NewAgreement')
   return soliditySha3(newAgreementEvent.args.agreementCreator, ...newAgreementEvent.args.dataReference, newAgreementEvent.args.token)
 }
