@@ -50,7 +50,7 @@ contract('StorageManager', ([Owner, Consumer, Provider, Provider2]) => {
     expect((await storageManager.getOfferUtilizedCapacity(Provider)).toNumber()).to.eql(capacity)
   }
 
-  describe('White list of providers', () => {
+  describe('Whitelist of providers', () => {
     it('should not be able to create an offer if not whitelisted', async () => {
       const msg = [padRight(asciiToHex('some string'), 64), padRight(asciiToHex('some other string'), 64)]
       await expectRevert(storageManager.setOffer(1000, [[10, 100], [20, 100]], [[10, 80], [20, 80]], [constants.ZERO_ADDRESS, token.address], msg, { from: Provider2 }),
