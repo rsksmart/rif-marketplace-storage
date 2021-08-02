@@ -8,7 +8,7 @@ updates:
     timezone: Europe/Prague
   open-pull-requests-limit: 10
   reviewers:
-  - AuHau
+  - artem-brazhnikov
   ignore:
   - dependency-name: truffle
     versions:
